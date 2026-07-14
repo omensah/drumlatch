@@ -9,25 +9,29 @@ import {
   Phone, MessageCircle, X, Plus, Minus, QrCode, Bluetooth, CreditCard,
   Settings, ArrowRight, Check, Trophy, Flame, TrendingUp
 } from 'lucide-react'
+import { MACHINES } from '@/lib/data'
 
 type Screen =
   | 'home' | 'machine-select' | 'cycle-select' | 'payment' | 'locking' | 'active-cycle'
   | 'cycle-complete' | 'unlock' | 'pickup' | 'rewards' | 'profile' | 'history'
 
-const MACHINE_SLOTS = [
-  { id: 'w1', number: 'W-01', type: 'washer', status: 'in-use', price: 4.50 },
-  { id: 'w2', number: 'W-02', type: 'washer', status: 'overdue', price: 4.50 },
-  { id: 'w3', number: 'W-03', type: 'washer', status: 'available', price: 4.50 },
-  { id: 'w4', number: 'W-04', type: 'washer', status: 'in-use', price: 5.25 },
-  { id: 'w5', number: 'W-05', type: 'washer', status: 'available', price: 4.50 },
-  { id: 'w6', number: 'W-06', type: 'washer', status: 'offline', price: 4.50 },
-  { id: 'd1', number: 'D-01', type: 'dryer', status: 'in-use', price: 3.75 },
-  { id: 'd2', number: 'D-02', type: 'dryer', status: 'available', price: 3.75 },
-  { id: 'd3', number: 'D-03', type: 'dryer', status: 'alert', price: 3.75 },
-  { id: 'd4', number: 'D-04', type: 'dryer', status: 'in-use', price: 4.25 },
-  { id: 'd5', number: 'D-05', type: 'dryer', status: 'available', price: 3.75 },
-  { id: 'd6', number: 'D-06', type: 'dryer', status: 'available', price: 3.75 },
-]
+// Price map keyed by machine type — in a real app this would come from the API
+const MACHINE_PRICE: Record<string, number> = {
+  'W-01': 4.50, 'W-02': 4.50, 'W-03': 4.50, 'W-04': 5.25, 'W-05': 4.50, 'W-06': 4.50,
+  'D-01': 3.75, 'D-02': 3.75, 'D-03': 3.75, 'D-04': 4.25, 'D-05': 3.75, 'D-06': 3.75,
+}
+
+/**
+ * Map internal machine status to what a customer should see.
+ * Overdue is an operational concern — customers see it simply as "in-use"
+ * so they don't try to interact with a machine that's pending pickup.
+ * Alert/offline machines are shown as unavailable.
+ */
+function toCustomerStatus(status: string): 'available' | 'in-use' | 'offline' {
+  if (status === 'available') return 'available'
+  if (status === 'offline' || status === 'alert') return 'offline'
+  return 'in-use' // covers: in-use, overdue, locked, reserved
+}
 
 const ACHIEVEMENTS = [
   { id: 'first', label: 'First Secure Pickup', icon: Shield, earned: true, tokens: 50 },
