@@ -737,58 +737,169 @@ function ProfileScreen() {
 
 // ── Pre-auth screens ────────────────────────────────────────────────────────
 
-type AuthStep = 'landing' | 'phone' | 'verify' | 'name' | 'payment-setup' | 'ready'
+type AuthStep =
+  | 'landing'          // hero + social sign-in options
+  | 'method'           // choose phone or email
+  | 'phone'            // phone input
+  | 'email'            // email + password input
+  | 'verify'           // OTP for phone
+  | 'email-verify'     // magic-link / email OTP confirmation
+  | 'name'             // first name
+  | 'payment-setup'    // Apple Pay / Google Pay / Card
+  | 'ready'            // success
+
+type PaymentTab = 'apple' | 'google' | 'card'
+
+// SVG logos for social + wallet providers — inlined to avoid external deps
+function GoogleLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function AppleLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    </svg>
+  )
+}
+
+function ApplePayMark() {
+  return (
+    <svg width="52" height="22" viewBox="0 0 52 22" fill="none" aria-label="Apple Pay">
+      <path d="M10.2 3.6c-.6.7-1.6 1.3-2.5 1.2-.1-1 .4-2 .9-2.7.6-.7 1.7-1.3 2.5-1.3.1 1-.3 2-.9 2.8zm.9 1.4c-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.7C3.5 5.2 2 6.3 1.2 7.8c-1.6 2.8-.4 7 1.1 9.3.8 1.1 1.7 2.4 2.9 2.3 1.1-.1 1.6-.7 2.9-.7 1.3 0 1.7.7 2.9.7 1.2-.1 2-1.2 2.8-2.3.8-1.2 1.2-2.4 1.2-2.5-.1 0-2.3-.9-2.4-3.5 0-2.2 1.8-3.2 1.9-3.3-.9-1.4-2.5-1.8-3.4-1.8z" fill="currentColor"/>
+      <text x="18" y="15" fontFamily="system-ui, -apple-system, sans-serif" fontSize="10" fontWeight="600" fill="currentColor">Pay</text>
+    </svg>
+  )
+}
+
+function GooglePayMark() {
+  return (
+    <svg width="58" height="22" viewBox="0 0 58 22" aria-label="Google Pay">
+      <text x="0" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#4285F4">G</text>
+      <text x="9" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#34A853">o</text>
+      <text x="17" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#FBBC05">o</text>
+      <text x="25" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#4285F4">g</text>
+      <text x="33" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#34A853">l</text>
+      <text x="37" y="15" fontFamily="'Google Sans', system-ui, sans-serif" fontSize="13" fontWeight="500" fill="#EA4335">e</text>
+      <text x="44" y="15" fontFamily="system-ui, sans-serif" fontSize="13" fontWeight="500" fill="currentColor"> Pay</text>
+    </svg>
+  )
+}
 
 function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<AuthStep>('landing')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [firstName, setFirstName] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [payTab, setPayTab] = useState<PaymentTab>('apple')
+  // Track which flow triggered verify (phone vs social-via-phone)
+  const [verifyBack, setVerifyBack] = useState<AuthStep>('phone')
 
   const advance = (next: AuthStep) => {
     setLoading(true)
-    setTimeout(() => { setLoading(false); setStep(next) }, 900)
+    setTimeout(() => { setLoading(false); setStep(next) }, 800)
   }
 
+  const Spinner = () => (
+    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+  )
+
+  const BackBtn = ({ to }: { to: AuthStep }) => (
+    <button onClick={() => setStep(to)} className="self-start p-1.5 rounded-lg bg-muted" aria-label="Go back">
+      <ChevronLeft className="w-4 h-4 text-foreground" />
+    </button>
+  )
+
+  // ── Landing ──────────────────────────────────────────────────────────────
   if (step === 'landing') {
     return (
-      <div className="flex flex-col h-full justify-between px-6 py-8">
-        <div className="flex flex-col items-center gap-4 mt-8">
-          <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-lg">
-            <svg width="40" height="44" viewBox="0 0 20 22" fill="none">
+      <div className="flex flex-col h-full justify-between px-6 py-8 overflow-y-auto">
+        <div className="flex flex-col items-center gap-5 mt-4">
+          <div className="w-[72px] h-[72px] rounded-3xl bg-primary flex items-center justify-center shadow-lg">
+            <svg width="36" height="40" viewBox="0 0 20 22" fill="none" aria-hidden="true">
               <path d="M5 10V7C5 4.24 7.24 2 10 2C12.76 2 15 4.24 15 7V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
               <rect x="2" y="10" width="16" height="10" rx="3" fill="white" />
               <circle cx="10" cy="15" r="1.5" fill="oklch(0.45 0.18 255)" />
-              <rect x="9.25" y="15.5" width="1.5" height="2.5" rx="0.5" fill="oklch(0.45 0.18 255)" />
+              <rect x="9.25" y="15.5" width="1.5" height="2.5" rx="0.75" fill="oklch(0.45 0.18 255)" />
             </svg>
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground">DrumLatch</h1>
-            <p className="text-muted-foreground text-sm mt-1.5">Secure your laundry. Every cycle.</p>
+            <p className="text-muted-foreground text-sm mt-1">Secure your laundry. Every cycle.</p>
           </div>
-          <div className="flex flex-col gap-3 w-full mt-4">
+
+          {/* Feature pills */}
+          <div className="flex flex-col gap-2.5 w-full">
             {[
               { icon: Shield, label: 'Anti-theft machine locking' },
-              { icon: Zap, label: 'Earn DrumTokens on every cycle' },
+              { icon: Zap, label: 'Earn DrumTokens every cycle' },
               { icon: Bell, label: 'Real-time pickup reminders' },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
+              <div key={label} className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-2.5">
                 <Icon className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-sm text-foreground">{label}</span>
               </div>
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-3">
-          <button onClick={() => setStep('phone')} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl">
+
+        <div className="flex flex-col gap-3 pt-6">
+          {/* Primary CTA */}
+          <button
+            onClick={() => setStep('method')}
+            className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl"
+          >
             Get Started
           </button>
-          <button onClick={() => setStep('phone')} className="w-full bg-card border border-border text-foreground font-semibold py-3.5 rounded-xl text-sm">
-            Sign In
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[11px] text-muted-foreground">or continue with</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Social sign-in row */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => advance('name')}
+              className="flex-1 flex items-center justify-center gap-2 bg-card border border-border rounded-xl py-3 hover:bg-muted active:scale-95 transition-all"
+              aria-label="Continue with Google"
+            >
+              <GoogleLogo size={18} />
+              <span className="text-sm font-semibold text-foreground">Google</span>
+            </button>
+            <button
+              onClick={() => advance('name')}
+              className="flex-1 flex items-center justify-center gap-2 bg-card border border-border rounded-xl py-3 hover:bg-muted active:scale-95 transition-all"
+              aria-label="Continue with Apple"
+            >
+              <AppleLogo size={18} />
+              <span className="text-sm font-semibold text-foreground">Apple</span>
+            </button>
+          </div>
+
+          {/* Sign in link */}
+          <button
+            onClick={() => setStep('method')}
+            className="text-sm text-center text-muted-foreground"
+          >
+            Already have an account?{' '}
+            <span className="text-primary font-semibold">Sign in</span>
           </button>
-          <p className="text-center text-[10px] text-muted-foreground px-4">
+
+          <p className="text-center text-[10px] text-muted-foreground px-4 leading-relaxed">
             By continuing you agree to our Terms of Service and Privacy Policy
           </p>
         </div>
@@ -796,18 +907,86 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     )
   }
 
+  // ── Method selector ───────────────────────────────────────────────────────
+  if (step === 'method') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6">
+        <BackBtn to="landing" />
+        <div>
+          <h2 className="text-xl font-bold text-foreground">How do you want to sign up?</h2>
+          <p className="text-sm text-muted-foreground mt-1">Choose how to create or access your account</p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => setStep('phone')}
+            className="flex items-center gap-4 bg-card border-2 border-border hover:border-primary rounded-xl px-4 py-4 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Phone className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground text-sm">Phone number</p>
+              <p className="text-xs text-muted-foreground mt-0.5">We&apos;ll send a 6-digit verification code</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
+          </button>
+
+          <button
+            onClick={() => setStep('email')}
+            className="flex items-center gap-4 bg-card border-2 border-border hover:border-primary rounded-xl px-4 py-4 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <MessageCircle className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground text-sm">Email address</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Sign up or sign in with your email</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
+          </button>
+        </div>
+
+        {/* Social options also available here */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-[11px] text-muted-foreground">or</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => advance('name')}
+            className="flex-1 flex items-center justify-center gap-2 bg-card border border-border rounded-xl py-3 hover:bg-muted active:scale-95 transition-all"
+            aria-label="Continue with Google"
+          >
+            <GoogleLogo size={16} />
+            <span className="text-sm font-semibold text-foreground">Google</span>
+          </button>
+          <button
+            onClick={() => advance('name')}
+            className="flex-1 flex items-center justify-center gap-2 bg-card border border-border rounded-xl py-3 hover:bg-muted active:scale-95 transition-all"
+            aria-label="Continue with Apple"
+          >
+            <AppleLogo size={16} />
+            <span className="text-sm font-semibold text-foreground">Apple</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Phone input ───────────────────────────────────────────────────────────
   if (step === 'phone') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
-        <button onClick={() => setStep('landing')} className="self-start p-1.5 rounded-lg bg-muted">
-          <ChevronLeft className="w-4 h-4 text-foreground" />
-        </button>
+        <BackBtn to="method" />
         <div>
           <h2 className="text-xl font-bold text-foreground">Enter your phone number</h2>
-          <p className="text-sm text-muted-foreground mt-1">We&apos;ll send you a verification code</p>
+          <p className="text-sm text-muted-foreground mt-1">We&apos;ll text you a 6-digit code to verify</p>
         </div>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 bg-card border-2 border-primary rounded-xl px-4 py-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 bg-card border-2 border-primary rounded-xl px-4 py-3.5">
             <span className="text-sm font-semibold text-muted-foreground">+1</span>
             <div className="w-px h-4 bg-border" />
             <input
@@ -819,43 +998,149 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
               aria-label="Phone number"
             />
           </div>
-          <p className="text-[10px] text-muted-foreground">Standard message rates may apply. Pre-authorization of $1.00 is required to activate your account.</p>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Standard message rates may apply. A $1.00 pre-authorization is required after signup to activate your account.
+          </p>
         </div>
         <button
-          onClick={() => advance('verify')}
+          onClick={() => { setVerifyBack('phone'); advance('verify') }}
           disabled={phone.length < 7 || loading}
           className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Send Code'}
+          {loading ? <Spinner /> : 'Send Code'}
         </button>
       </div>
     )
   }
 
+  // ── Email input ───────────────────────────────────────────────────────────
+  if (step === 'email') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6">
+        <BackBtn to="method" />
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Enter your email</h2>
+          <p className="text-sm text-muted-foreground mt-1">We&apos;ll send a confirmation link to verify</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <input
+            className="bg-card border-2 border-primary rounded-xl px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground w-full"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            aria-label="Email address"
+            inputMode="email"
+          />
+          <input
+            className="bg-card border-2 border-border focus:border-primary rounded-xl px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground w-full transition-colors"
+            type="password"
+            placeholder="Create a password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            aria-label="Password"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Use 8+ characters with a mix of letters and numbers.
+          </p>
+        </div>
+        <button
+          onClick={() => advance('email-verify')}
+          disabled={!email.includes('@') || password.length < 8 || loading}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {loading ? <Spinner /> : 'Continue'}
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-[11px] text-muted-foreground">already have an account?</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <button
+          onClick={() => advance('email-verify')}
+          className="w-full bg-card border border-border text-foreground font-semibold py-3.5 rounded-xl text-sm"
+        >
+          Sign In with Email
+        </button>
+      </div>
+    )
+  }
+
+  // ── Email verification notice ─────────────────────────────────────────────
+  if (step === 'email-verify') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6 items-center justify-center">
+        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <MessageCircle className="w-8 h-8 text-primary" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-foreground">Check your inbox</h2>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+            We sent a confirmation link to<br />
+            <span className="font-semibold text-foreground">{email || 'your@email.com'}</span>
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-2xl p-4 w-full flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground text-center">Didn&apos;t receive it?</p>
+          <button
+            onClick={() => advance('email-verify')}
+            className="text-sm text-primary font-semibold text-center"
+          >
+            Resend confirmation email
+          </button>
+        </div>
+        <button
+          onClick={() => advance('name')}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2"
+        >
+          {loading ? <Spinner /> : <>I&apos;ve confirmed my email <ArrowRight className="w-4 h-4" /></>}
+        </button>
+        <button onClick={() => setStep('email')} className="text-xs text-muted-foreground">
+          Wrong email? Go back
+        </button>
+      </div>
+    )
+  }
+
+  // ── OTP verification ──────────────────────────────────────────────────────
   if (step === 'verify') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
-        <button onClick={() => setStep('phone')} className="self-start p-1.5 rounded-lg bg-muted">
-          <ChevronLeft className="w-4 h-4 text-foreground" />
-        </button>
+        <BackBtn to={verifyBack} />
         <div>
-          <h2 className="text-xl font-bold text-foreground">Verify your number</h2>
-          <p className="text-sm text-muted-foreground mt-1">Enter the 6-digit code sent to {phone || '(555) 201-4488'}</p>
+          <h2 className="text-xl font-bold text-foreground">Enter the code</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Sent to {phone || '(555) 201-4488'}
+          </p>
         </div>
         <div className="flex gap-2 justify-center">
           {[0,1,2,3,4,5].map(i => (
-            <div key={i} className={cn('w-11 h-14 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-colors', i < code.length ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground')}>
+            <div
+              key={i}
+              className={cn(
+                'w-11 h-14 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-colors',
+                i < code.length ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground'
+              )}
+            >
               {code[i] ?? '·'}
             </div>
           ))}
         </div>
         {/* Numeric keypad */}
-        <div className="grid grid-cols-3 gap-3 mt-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, i) => (
-            <button key={i} onClick={() => {
-              if (k === '⌫') setCode(c => c.slice(0,-1))
-              else if (k !== '' && code.length < 6) setCode(c => c + k)
-            }} className={cn('h-12 rounded-xl text-lg font-semibold transition-colors', k === '' ? '' : 'bg-card border border-border text-foreground hover:bg-muted active:scale-95')}>
+            <button
+              key={i}
+              onClick={() => {
+                if (k === '⌫') setCode(c => c.slice(0,-1))
+                else if (k !== '' && code.length < 6) setCode(c => c + k)
+              }}
+              className={cn(
+                'h-12 rounded-xl text-lg font-semibold transition-colors',
+                k === '' ? '' : 'bg-card border border-border text-foreground hover:bg-muted active:scale-95'
+              )}
+            >
               {k}
             </button>
           ))}
@@ -865,19 +1150,20 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
           disabled={code.length < 6 || loading}
           className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Verify'}
+          {loading ? <Spinner /> : 'Verify'}
         </button>
-        <button onClick={() => advance('verify')} className="text-center text-xs text-primary font-medium">Resend code</button>
+        <button onClick={() => advance('verify')} className="text-center text-xs text-primary font-medium">
+          Resend code
+        </button>
       </div>
     )
   }
 
+  // ── Name ──────────────────────────────────────────────────────────────────
   if (step === 'name') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
-        <button onClick={() => setStep('verify')} className="self-start p-1.5 rounded-lg bg-muted">
-          <ChevronLeft className="w-4 h-4 text-foreground" />
-        </button>
+        <BackBtn to="method" />
         <div>
           <h2 className="text-xl font-bold text-foreground">What&apos;s your name?</h2>
           <p className="text-sm text-muted-foreground mt-1">This is how we&apos;ll greet you in the app</p>
@@ -894,21 +1180,22 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
           disabled={firstName.trim().length < 2 || loading}
           className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Continue'}
+          {loading ? <Spinner /> : 'Continue'}
         </button>
       </div>
     )
   }
 
+  // ── Payment setup ─────────────────────────────────────────────────────────
   if (step === 'payment-setup') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-5 pb-8 overflow-y-auto">
-        <button onClick={() => setStep('name')} className="self-start p-1.5 rounded-lg bg-muted">
-          <ChevronLeft className="w-4 h-4 text-foreground" />
-        </button>
+        <BackBtn to="name" />
         <div>
           <h2 className="text-xl font-bold text-foreground">Add a payment method</h2>
-          <p className="text-sm text-muted-foreground mt-1">Required to use DrumLatch machines. A $1.00 pre-authorization hold will be placed and immediately released.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Required to use DrumLatch. A $1.00 pre-authorization hold will be placed and immediately released.
+          </p>
         </div>
 
         {/* Pre-auth explanation */}
@@ -916,56 +1203,152 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
           <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-foreground">Why a pre-authorization?</p>
-            <p className="text-xs text-muted-foreground mt-1">We hold $1.00 to verify your card is valid and to protect machines from misuse. The hold is released immediately — you are only charged for cycles you start.</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              We hold $1.00 to verify your payment method is valid and protect machines from misuse. The hold is released immediately — you are only charged for cycles you start.
+            </p>
           </div>
         </div>
 
-        {/* Card fields */}
-        <div className="flex flex-col gap-3">
-          <div className="bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
-            <p className="text-[10px] text-muted-foreground mb-1">Card number</p>
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
-              <input className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="1234 5678 9012 3456" inputMode="numeric" aria-label="Card number" />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
-              <p className="text-[10px] text-muted-foreground mb-1">Expiry</p>
-              <input className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="MM / YY" inputMode="numeric" aria-label="Expiry date" />
-            </div>
-            <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
-              <p className="text-[10px] text-muted-foreground mb-1">CVV</p>
-              <input className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="•••" inputMode="numeric" aria-label="CVV" />
-            </div>
-          </div>
+        {/* Payment method tabs */}
+        <div className="flex rounded-xl bg-muted p-1 gap-1" role="tablist">
+          {([
+            { id: 'apple' as PaymentTab, label: 'Apple Pay' },
+            { id: 'google' as PaymentTab, label: 'Google Pay' },
+            { id: 'card' as PaymentTab, label: 'Card' },
+          ]).map(t => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={payTab === t.id}
+              onClick={() => setPayTab(t.id)}
+              className={cn(
+                'flex-1 py-2 rounded-lg text-xs font-semibold transition-colors',
+                payTab === t.id
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Consent */}
-        <button
-          onClick={() => setAgreed(a => !a)}
-          className="flex items-start gap-3 text-left"
-          aria-pressed={agreed}
-        >
-          <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors', agreed ? 'bg-primary border-primary' : 'border-border bg-card')}>
-            {agreed && <Check className="w-3 h-3 text-white" />}
+        {/* Apple Pay panel */}
+        {payTab === 'apple' && (
+          <div className="flex flex-col gap-4">
+            <div className="bg-foreground rounded-2xl px-5 py-5 flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2">
+                <AppleLogo size={20} />
+                <span className="text-background text-base font-semibold tracking-tight">Pay</span>
+              </div>
+              <p className="text-background/70 text-xs text-center leading-relaxed">
+                Use Face ID or Touch ID to authorize the $1.00 pre-authorization hold securely.
+              </p>
+              <button
+                onClick={() => { setAgreed(true); advance('ready') }}
+                className="w-full bg-background text-foreground font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm mt-1"
+              >
+                <AppleLogo size={16} />
+                Authorize with Apple Pay
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Apple Pay uses your device biometrics — your card number is never shared with DrumLatch.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">I authorize DrumLatch to place a $1.00 pre-authorization hold on my card to verify my account. This hold will be released immediately.</p>
-        </button>
+        )}
 
-        <button
-          onClick={() => advance('ready')}
-          disabled={!agreed || loading}
-          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><Lock className="w-4 h-4" /> Authorize & Continue</>}
-        </button>
+        {/* Google Pay panel */}
+        {payTab === 'google' && (
+          <div className="flex flex-col gap-4">
+            <div className="bg-card border border-border rounded-2xl px-5 py-5 flex flex-col items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <GoogleLogo size={20} />
+                <span className="text-foreground text-base font-semibold">Pay</span>
+              </div>
+              <p className="text-muted-foreground text-xs text-center leading-relaxed">
+                Authorize the $1.00 pre-authorization hold using your Google Pay wallet.
+              </p>
+              <button
+                onClick={() => { setAgreed(true); advance('ready') }}
+                className="w-full bg-[#1a73e8] text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm mt-1"
+              >
+                <GoogleLogo size={16} />
+                Authorize with Google Pay
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Google Pay keeps your payment info private. Your actual card details are never shared.
+            </p>
+          </div>
+        )}
+
+        {/* Card panel */}
+        {payTab === 'card' && (
+          <div className="flex flex-col gap-3">
+            <div className="bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+              <p className="text-[10px] text-muted-foreground mb-1.5">Card number</p>
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input
+                  className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  placeholder="1234 5678 9012 3456"
+                  inputMode="numeric"
+                  aria-label="Card number"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+                <p className="text-[10px] text-muted-foreground mb-1.5">Expiry</p>
+                <input
+                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  placeholder="MM / YY"
+                  inputMode="numeric"
+                  aria-label="Expiry date"
+                />
+              </div>
+              <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+                <p className="text-[10px] text-muted-foreground mb-1.5">CVV</p>
+                <input
+                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  placeholder="•••"
+                  inputMode="numeric"
+                  aria-label="CVV"
+                />
+              </div>
+            </div>
+
+            {/* Consent */}
+            <button
+              onClick={() => setAgreed(a => !a)}
+              className="flex items-start gap-3 text-left mt-1"
+              aria-pressed={agreed}
+            >
+              <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors', agreed ? 'bg-primary border-primary' : 'border-border bg-card')}>
+                {agreed && <Check className="w-3 h-3 text-white" />}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                I authorize DrumLatch to place a $1.00 pre-authorization hold on my card. The hold will be released immediately.
+              </p>
+            </button>
+
+            <button
+              onClick={() => advance('ready')}
+              disabled={!agreed || loading}
+              className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? <Spinner /> : <><Lock className="w-4 h-4" /> Authorize &amp; Continue</>}
+            </button>
+          </div>
+        )}
+
         <p className="text-center text-[10px] text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
       </div>
     )
   }
 
-  // step === 'ready'
+  // ── Ready ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 gap-6">
       <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center">
@@ -973,10 +1356,12 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
       </div>
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground">You&apos;re all set!</h2>
-        <p className="text-sm text-muted-foreground mt-1.5">Pre-authorization confirmed. Your account is ready to use.</p>
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+          Pre-authorization confirmed. Your account is ready to use.
+        </p>
       </div>
       <div className="bg-card border border-border rounded-2xl p-4 w-full">
-        <div className="flex justify-between text-sm mb-2">
+        <div className="flex justify-between text-sm mb-2.5">
           <span className="text-muted-foreground">Pre-auth hold</span>
           <span className="font-semibold text-foreground">$1.00</span>
         </div>
@@ -985,7 +1370,10 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
           <span className="font-semibold text-success">Released</span>
         </div>
       </div>
-      <button onClick={onComplete} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+      <button
+        onClick={onComplete}
+        className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2"
+      >
         Start Using DrumLatch <ArrowRight className="w-4 h-4" />
       </button>
     </div>
