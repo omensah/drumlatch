@@ -326,26 +326,76 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
 
 function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
   const [loading, setLoading] = useState(false)
+  const [preAuthStep, setPreAuthStep] = useState<'idle' | 'authorizing' | 'confirmed'>('idle')
+
   const handlePay = () => {
-    setLoading(true)
-    setTimeout(() => onNav('locking'), 1400)
+    // Step 1: show pre-auth collecting state
+    setPreAuthStep('authorizing')
+    setTimeout(() => {
+      // Step 2: pre-auth confirmed, proceed to locking
+      setPreAuthStep('confirmed')
+      setTimeout(() => onNav('locking'), 700)
+    }, 1200)
   }
+
   return (
     <div className="flex flex-col h-full pb-16 overflow-y-auto">
       <div className="bg-sidebar px-5 pt-4 pb-4 flex items-center gap-3">
-        <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent">
+        <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent" aria-label="Go back">
           <ChevronLeft className="w-4 h-4 text-sidebar-foreground" />
         </button>
-        <h1 className="text-sidebar-foreground font-bold">Payment</h1>
+        <h1 className="text-sidebar-foreground font-bold">Confirm &amp; Pay</h1>
       </div>
       <div className="px-5 pt-4 flex flex-col gap-4">
         {/* Order summary */}
         <div className="bg-card rounded-2xl border border-border p-4">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Order Summary</h2>
-          <div className="flex justify-between mb-2 text-sm"><span className="text-muted-foreground">Washer W-03 — Normal Wash</span><span className="font-medium text-foreground">$4.50</span></div>
-          <div className="flex justify-between mb-2 text-sm"><span className="text-muted-foreground">Tax</span><span className="font-medium text-foreground">$0.36</span></div>
-          <div className="border-t border-border pt-2 mt-2 flex justify-between"><span className="font-bold text-foreground">Total</span><span className="font-bold text-foreground">$4.86</span></div>
+          <div className="flex justify-between mb-2 text-sm">
+            <span className="text-muted-foreground">Washer W-03</span>
+            <span className="font-medium text-foreground">$4.50</span>
+          </div>
+          <div className="flex justify-between mb-2 text-sm">
+            <span className="text-muted-foreground">Tax</span>
+            <span className="font-medium text-foreground">$0.36</span>
+          </div>
+          <div className="border-t border-border pt-2.5 mt-2 flex justify-between">
+            <span className="font-bold text-foreground">Total charged</span>
+            <span className="font-bold text-foreground">$4.86</span>
+          </div>
         </div>
+
+        {/* Pre-authorization deposit notice */}
+        <div className={cn(
+          'rounded-2xl border p-4 flex gap-3 transition-colors',
+          preAuthStep === 'confirmed'
+            ? 'bg-success/5 border-success/30'
+            : 'bg-warning/5 border-warning/20'
+        )}>
+          {preAuthStep === 'confirmed' ? (
+            <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
+          ) : (
+            <Shield className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">
+                {preAuthStep === 'confirmed' ? 'Deposit confirmed' : '$1.00 pre-authorization deposit'}
+              </p>
+              {preAuthStep === 'authorizing' && (
+                <span className="w-3.5 h-3.5 border-2 border-warning/40 border-t-warning rounded-full animate-spin" />
+              )}
+              {preAuthStep === 'confirmed' && (
+                <span className="text-xs font-semibold text-success">Released</span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              {preAuthStep === 'confirmed'
+                ? 'The $1.00 deposit was collected and will be released once your cycle completes.'
+                : 'A $1.00 deposit is collected when you activate a machine to confirm your payment method is valid. It is released as soon as your cycle ends.'}
+            </p>
+          </div>
+        </div>
+
         {/* Payment method */}
         <div className="bg-card rounded-2xl border border-border p-4">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Payment Method</h2>
@@ -358,23 +408,33 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
             <Check className="w-4 h-4 text-primary ml-auto" />
           </div>
         </div>
-        {/* DrumToken discount */}
+
+        {/* DrumToken balance */}
         <div className="bg-success/5 border border-success/20 rounded-2xl p-4 flex items-center gap-3">
           <Zap className="w-5 h-5 text-success" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">2,340 DrumTokens available</p>
-            <p className="text-xs text-muted-foreground">Not enough for a free cycle yet (need 500 more)</p>
+            <p className="text-xs text-muted-foreground">Need 500 more for a free cycle</p>
           </div>
         </div>
+
         <button
           onClick={handlePay}
-          disabled={loading}
+          disabled={loading || preAuthStep !== 'idle'}
           className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-70"
         >
-          {loading ? (
-            <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Processing...</span>
+          {preAuthStep === 'authorizing' ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Collecting deposit…
+            </span>
+          ) : preAuthStep === 'confirmed' ? (
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Deposit confirmed — activating lock…
+            </span>
           ) : (
-            <><Lock className="w-4 h-4" /> Pay & Lock Machine</>
+            <><Lock className="w-4 h-4" /> Pay &amp; Lock Machine</>
           )}
         </button>
         <p className="text-center text-xs text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
@@ -385,7 +445,7 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
 
 function LockingScreen({ onNav }: { onNav: (s: Screen) => void }) {
   const [step, setStep] = useState(0)
-  const steps = ['Payment confirmed', 'Connecting to W-03', 'Engaging DrumLatch', 'Machine secured']
+  const steps = ['Deposit collected', 'Payment confirmed', 'Connecting to W-03', 'Engaging DrumLatch', 'Machine secured']
   useState(() => {
     const timers = steps.map((_, i) => setTimeout(() => {
       setStep(i + 1)
@@ -1151,17 +1211,17 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
         <div>
           <h2 className="text-xl font-bold text-foreground">Add a payment method</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Required to use DrumLatch. A $1.00 pre-authorization hold will be placed and immediately released.
+            Save a payment method to your account. You&apos;ll only be charged when you start a cycle.
           </p>
         </div>
 
-        {/* Pre-auth explanation */}
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3">
+        {/* Info note */}
+        <div className="bg-muted border border-border rounded-2xl p-4 flex gap-3">
           <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-foreground">Why a pre-authorization?</p>
+            <p className="text-sm font-semibold text-foreground">Saved securely on file</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              We hold $1.00 to verify your payment method is valid and protect machines from misuse. The hold is released immediately — you are only charged for cycles you start.
+              Your payment method is stored securely. When you select a machine, a $1.00 pre-authorization deposit will be collected to activate the lock — released immediately after your cycle ends.
             </p>
           </div>
         </div>
@@ -1199,14 +1259,14 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
                 <span className="text-background text-base font-semibold tracking-tight">Pay</span>
               </div>
               <p className="text-background/70 text-xs text-center leading-relaxed">
-                Use Face ID or Touch ID to authorize the $1.00 pre-authorization hold securely.
+                Use Face ID or Touch ID to securely save your Apple Pay wallet to your account.
               </p>
               <button
                 onClick={() => { setAgreed(true); advance('ready') }}
                 className="w-full bg-background text-foreground font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm mt-1"
               >
                 <AppleLogo size={16} />
-                Authorize with Apple Pay
+                Save with Apple Pay
               </button>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
@@ -1224,14 +1284,14 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
                 <span className="text-foreground text-base font-semibold">Pay</span>
               </div>
               <p className="text-muted-foreground text-xs text-center leading-relaxed">
-                Authorize the $1.00 pre-authorization hold using your Google Pay wallet.
+                Save your Google Pay wallet securely to your DrumLatch account.
               </p>
               <button
                 onClick={() => { setAgreed(true); advance('ready') }}
                 className="w-full bg-[#1a73e8] text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm mt-1"
               >
                 <GoogleLogo size={16} />
-                Authorize with Google Pay
+                Save with Google Pay
               </button>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
@@ -1286,7 +1346,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
                 {agreed && <Check className="w-3 h-3 text-white" />}
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                I authorize DrumLatch to place a $1.00 pre-authorization hold on my card. The hold will be released immediately.
+                I authorise DrumLatch to save this card on file. A $1.00 pre-authorization deposit will be collected each time I activate a machine and released immediately after my cycle ends.
               </p>
             </button>
 
@@ -1295,7 +1355,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
               disabled={!agreed || loading}
               className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? <Spinner /> : <><Lock className="w-4 h-4" /> Authorize &amp; Continue</>}
+              {loading ? <Spinner /> : <><Lock className="w-4 h-4" /> Save Card</>}
             </button>
           </div>
         )}
@@ -1314,17 +1374,17 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground">You&apos;re all set!</h2>
         <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-          Pre-authorization confirmed. Your account is ready to use.
+          Payment method saved. Select a machine to get started — a $1.00 deposit will be collected when you activate your first lock.
         </p>
       </div>
       <div className="bg-card border border-border rounded-2xl p-4 w-full">
         <div className="flex justify-between text-sm mb-2.5">
-          <span className="text-muted-foreground">Pre-auth hold</span>
-          <span className="font-semibold text-foreground">$1.00</span>
+          <span className="text-muted-foreground">Payment method</span>
+          <span className="font-semibold text-foreground">Saved</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Status</span>
-          <span className="font-semibold text-success">Released</span>
+          <span className="text-muted-foreground">Account status</span>
+          <span className="font-semibold text-success">Active</span>
         </div>
       </div>
       <button
