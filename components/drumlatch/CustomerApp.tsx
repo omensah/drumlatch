@@ -344,23 +344,17 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
         <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent" aria-label="Go back">
           <ChevronLeft className="w-4 h-4 text-sidebar-foreground" />
         </button>
-        <h1 className="text-sidebar-foreground font-bold">Confirm &amp; Pay</h1>
+        <h1 className="text-sidebar-foreground font-bold">Activate Lock</h1>
       </div>
       <div className="px-5 pt-4 flex flex-col gap-4">
-        {/* Order summary */}
-        <div className="bg-card rounded-2xl border border-border p-4">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Order Summary</h2>
-          <div className="flex justify-between mb-2 text-sm">
-            <span className="text-muted-foreground">Washer W-03</span>
-            <span className="font-medium text-foreground">$4.50</span>
+        {/* Machine being locked */}
+        <div className="bg-card rounded-2xl border border-border p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Lock className="w-6 h-6 text-primary" />
           </div>
-          <div className="flex justify-between mb-2 text-sm">
-            <span className="text-muted-foreground">Tax</span>
-            <span className="font-medium text-foreground">$0.36</span>
-          </div>
-          <div className="border-t border-border pt-2.5 mt-2 flex justify-between">
-            <span className="font-bold text-foreground">Total charged</span>
-            <span className="font-bold text-foreground">$4.86</span>
+          <div>
+            <p className="font-bold text-foreground">Washer W-03</p>
+            <p className="text-xs text-muted-foreground">Ready to lock · Vibration detection active</p>
           </div>
         </div>
 
@@ -369,36 +363,36 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
           'rounded-2xl border p-4 flex gap-3 transition-colors',
           preAuthStep === 'confirmed'
             ? 'bg-success/5 border-success/30'
-            : 'bg-warning/5 border-warning/20'
+            : 'bg-card border-border'
         )}>
           {preAuthStep === 'confirmed' ? (
             <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
           ) : (
-            <Shield className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+            <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           )}
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-foreground">
-                {preAuthStep === 'confirmed' ? 'Deposit confirmed' : '$1.00 pre-authorization deposit'}
+                {preAuthStep === 'confirmed' ? 'Deposit collected' : '$1.00 pre-authorization deposit'}
               </p>
               {preAuthStep === 'authorizing' && (
-                <span className="w-3.5 h-3.5 border-2 border-warning/40 border-t-warning rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               )}
               {preAuthStep === 'confirmed' && (
-                <span className="text-xs font-semibold text-success">Released</span>
+                <span className="text-xs font-semibold text-success">Held</span>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               {preAuthStep === 'confirmed'
-                ? 'The $1.00 deposit was collected and will be released once your cycle completes.'
-                : 'A $1.00 deposit is collected when you activate a machine to confirm your payment method is valid. It is released as soon as your cycle ends.'}
+                ? 'Deposit is held while your machine is locked. Pick up your laundry on time and the full $1.00 reverses automatically.'
+                : 'A $1.00 deposit is held when you activate a machine. It fully reverses the moment you pick up your laundry on time — you are never charged if you collect promptly.'}
             </p>
           </div>
         </div>
 
-        {/* Payment method */}
+        {/* Payment method on file */}
         <div className="bg-card rounded-2xl border border-border p-4">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Payment Method</h2>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Payment Method on File</h2>
           <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
             <CreditCard className="w-5 h-5 text-primary" />
             <div>
@@ -409,18 +403,9 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
           </div>
         </div>
 
-        {/* DrumToken balance */}
-        <div className="bg-success/5 border border-success/20 rounded-2xl p-4 flex items-center gap-3">
-          <Zap className="w-5 h-5 text-success" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">2,340 DrumTokens available</p>
-            <p className="text-xs text-muted-foreground">Need 500 more for a free cycle</p>
-          </div>
-        </div>
-
         <button
           onClick={handlePay}
-          disabled={loading || preAuthStep !== 'idle'}
+          disabled={preAuthStep !== 'idle'}
           className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-70"
         >
           {preAuthStep === 'authorizing' ? (
@@ -431,10 +416,10 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
           ) : preAuthStep === 'confirmed' ? (
             <span className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              Deposit confirmed — activating lock…
+              Deposit held — activating lock…
             </span>
           ) : (
-            <><Lock className="w-4 h-4" /> Pay &amp; Lock Machine</>
+            <><Lock className="w-4 h-4" /> Lock Machine</>
           )}
         </button>
         <p className="text-center text-xs text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
@@ -635,9 +620,18 @@ function CycleCompleteScreen({ onNav }: { onNav: (s: Screen) => void }) {
           Need More Time
         </button>
 
-        {/* Earnings */}
+        {/* Deposit reversal notice */}
         <div className="bg-success/5 border border-success/20 rounded-2xl p-4 flex items-center gap-3">
-          <Zap className="w-5 h-5 text-success" />
+          <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Deposit will fully reverse</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">Pick up within the window and your $1.00 deposit reverses automatically — no charge.</p>
+          </div>
+        </div>
+
+        {/* Earnings */}
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
+          <Zap className="w-5 h-5 text-primary" />
           <div>
             <p className="text-sm font-semibold text-foreground">+60 DrumTokens earned!</p>
             <p className="text-xs text-muted-foreground">On-time pickup bonus · Streak day 13</p>
@@ -1046,7 +1040,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     )
   }
 
-  // ── Email input ───────────────────────────────────────────────────────────
+  // ── Email input ───────────────────────────────────────────────���───────────
   if (step === 'email') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
@@ -1237,7 +1231,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
           <div>
             <p className="text-sm font-semibold text-foreground">Saved securely on file</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Your payment method is stored securely. When you select a machine, a $1.00 pre-authorization deposit will be collected to activate the lock — released immediately after your cycle ends.
+              Your payment method is stored securely. When you activate a machine, a $1.00 deposit is held. Pick up your laundry on time and it fully reverses — you are never charged if you collect promptly.
             </p>
           </div>
         </div>
