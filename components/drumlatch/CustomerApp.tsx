@@ -764,6 +764,7 @@ type AuthStep =
   | 'name'             // first name
   | 'payment-setup'    // Apple Pay / Google Pay / Card
   | 'ready'            // success
+  | 'guest'            // guest limitations + confirm
 
 type PaymentTab = 'apple' | 'google' | 'card'
 
@@ -916,6 +917,14 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
             <span className="text-primary font-semibold">Sign in</span>
           </button>
 
+          {/* Guest option */}
+          <button
+            onClick={() => setStep('guest')}
+            className="text-sm text-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            Continue as guest
+          </button>
+
           <p className="text-center text-[10px] text-muted-foreground px-4 leading-relaxed">
             By continuing you agree to our Terms of Service and Privacy Policy
           </p>
@@ -989,6 +998,13 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
             <span className="text-sm font-semibold text-foreground">Apple</span>
           </button>
         </div>
+
+        <button
+          onClick={() => setStep('guest')}
+          className="text-sm text-center text-muted-foreground/60 hover:text-muted-foreground transition-colors pt-1"
+        >
+          Continue as guest instead
+        </button>
       </div>
     )
   }
@@ -1120,7 +1136,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     )
   }
 
-  // ── OTP verification ──────────���───────────────────────────────────────────
+  // ─�� OTP verification ──────────���───────────────────────────────────────────
   if (step === 'verify') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
@@ -1361,6 +1377,68 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
         )}
 
         <p className="text-center text-[10px] text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
+      </div>
+    )
+  }
+
+  // ── Guest ─────────────────────────────────────────────────────────────────
+  if (step === 'guest') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 pb-8 gap-5 overflow-y-auto">
+        <BackBtn to="landing" />
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Continue as Guest</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            You can still use DrumLatch machines — a few features won&apos;t be available.
+          </p>
+        </div>
+
+        {/* What guests get */}
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available to you</p>
+          {[
+            { icon: Lock, label: 'Activate and lock machines' },
+            { icon: CreditCard, label: 'Pay per cycle — card required each time' },
+            { icon: Bell, label: 'In-session cycle timer and alerts' },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
+              <Icon className="w-4 h-4 text-success shrink-0" />
+              <span className="text-sm text-foreground">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* What guests miss */}
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Not available as a guest</p>
+          {[
+            { icon: Zap, label: 'DrumTokens rewards — earn on every cycle' },
+            { icon: Shield, label: 'Saved payment method — re-enter each visit' },
+            { icon: Bell, label: 'Push notifications for cycle completion' },
+            { icon: Star, label: 'Cycle history and spending summary' },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3 opacity-60">
+              <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground line-through decoration-muted-foreground/40">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3 pt-1">
+          <button
+            onClick={onComplete}
+            className="w-full bg-card border-2 border-border text-foreground font-semibold py-4 rounded-xl"
+          >
+            Continue as Guest
+          </button>
+          <button
+            onClick={() => setStep('method')}
+            className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl"
+          >
+            Create a Free Account
+          </button>
+        </div>
       </div>
     )
   }
