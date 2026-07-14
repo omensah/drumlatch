@@ -15,23 +15,34 @@ type Screen =
   | 'home' | 'machine-select' | 'cycle-select' | 'payment' | 'locking' | 'active-cycle'
   | 'cycle-complete' | 'unlock' | 'pickup' | 'rewards' | 'profile' | 'history'
 
-// Price map keyed by machine type — in a real app this would come from the API
+/**
+ * Map internal machine status to what a customer should see.
+ * Overdue is an operational concern — customers see it as "in-use" so they
+ * don't try to interact with a machine pending pickup.
+ * Alert/offline machines are shown as unavailable.
+ */
+type CustomerMachineStatus = 'available' | 'in-use' | 'offline'
+
+function toCustomerStatus(status: string): CustomerMachineStatus {
+  if (status === 'available') return 'available'
+  if (status === 'offline' || status === 'alert') return 'offline'
+  return 'in-use' // covers: in-use, overdue, locked, reserved
+}
+
+// Price map derived from the machines API response — keyed by machine number
 const MACHINE_PRICE: Record<string, number> = {
   'W-01': 4.50, 'W-02': 4.50, 'W-03': 4.50, 'W-04': 5.25, 'W-05': 4.50, 'W-06': 4.50,
   'D-01': 3.75, 'D-02': 3.75, 'D-03': 3.75, 'D-04': 4.25, 'D-05': 3.75, 'D-06': 3.75,
 }
 
-/**
- * Map internal machine status to what a customer should see.
- * Overdue is an operational concern — customers see it simply as "in-use"
- * so they don't try to interact with a machine that's pending pickup.
- * Alert/offline machines are shown as unavailable.
- */
-function toCustomerStatus(status: string): 'available' | 'in-use' | 'offline' {
-  if (status === 'available') return 'available'
-  if (status === 'offline' || status === 'alert') return 'offline'
-  return 'in-use' // covers: in-use, overdue, locked, reserved
-}
+// Derived from MACHINES — customer-safe view, no overdue status exposed
+const CUSTOMER_MACHINES = MACHINES.map(m => ({
+  id: m.id,
+  number: m.number,
+  type: m.type,
+  status: toCustomerStatus(m.status),
+  price: MACHINE_PRICE[m.number] ?? (m.type === 'washer' ? 4.50 : 3.75),
+}))
 
 const ACHIEVEMENTS = [
   { id: 'first', label: 'First Secure Pickup', icon: Shield, earned: true, tokens: 50 },
@@ -211,15 +222,13 @@ function HomeScreen({ onNav }: { onNav: (s: Screen) => void }) {
 function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
   const [selected, setSelected] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'washer' | 'dryer'>('all')
-  const visible = filter === 'all' ? MACHINE_SLOTS : MACHINE_SLOTS.filter(m => m.type === filter)
+  const visible = filter === 'all' ? CUSTOMER_MACHINES : CUSTOMER_MACHINES.filter(m => m.type === filter)
 
-  const statusColor = (s: string) => ({
+  const statusColor = (s: CustomerMachineStatus) => ({
     available: 'bg-success/10 border-success/30 text-success',
     'in-use': 'bg-primary/10 border-primary/20 text-primary',
-    overdue: 'bg-warning/10 border-warning/30 text-warning',
     offline: 'bg-muted border-border text-muted-foreground',
-    alert: 'bg-destructive/10 border-destructive/20 text-destructive',
-  }[s] || 'bg-muted border-border text-muted-foreground')
+  }[s] ?? 'bg-muted border-border text-muted-foreground')
 
   return (
     <div className="flex flex-col h-full pb-16 overflow-y-auto">
@@ -245,12 +254,11 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
 
         {/* Legend */}
         <div className="flex gap-3 mb-4 flex-wrap">
-          {[['available', 'Available'], ['in-use', 'In Use'], ['overdue', 'Overdue'], ['offline', 'Offline']].map(([s, l]) => (
+          {([['available', 'Available'], ['in-use', 'In Use'], ['offline', 'Unavailable']] as [CustomerMachineStatus, string][]).map(([s, l]) => (
             <span key={s} className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <span className={cn('w-2 h-2 rounded-full', {
                 'bg-success': s === 'available',
                 'bg-primary': s === 'in-use',
-                'bg-warning': s === 'overdue',
                 'bg-muted-foreground': s === 'offline',
               })} />
               {l}
@@ -277,12 +285,12 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
                 <WashingMachine className={cn('w-7 h-7', {
                   'text-success': m.status === 'available',
                   'text-primary': m.status === 'in-use',
-                  'text-warning': m.status === 'overdue',
                   'text-muted-foreground': m.status === 'offline',
-                  'text-destructive': m.status === 'alert',
                 })} />
                 <span className="text-xs font-bold text-foreground">{m.number}</span>
-                <span className="text-[10px] capitalize text-muted-foreground leading-none">{m.status === 'in-use' ? 'In Use' : m.status}</span>
+                <span className="text-[10px] capitalize text-muted-foreground leading-none">
+                  {m.status === 'in-use' ? 'In Use' : m.status === 'offline' ? 'Unavailable' : 'Available'}
+                </span>
               </button>
             )
           })}
@@ -290,13 +298,18 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
 
         {selected && (
           <div className="bg-card rounded-2xl border border-border p-4 mb-4 animate-slide-up">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-bold text-foreground">{visible.find(m => m.id === selected)?.number} — Washer</p>
-                <p className="text-xs text-muted-foreground">Standard wash cycle</p>
-              </div>
-              <p className="text-lg font-bold text-foreground">${visible.find(m => m.id === selected)?.price.toFixed(2)}</p>
-            </div>
+            {(() => {
+              const sel = visible.find(m => m.id === selected)
+              return (
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-foreground">{sel?.number} — {sel?.type === 'dryer' ? 'Dryer' : 'Washer'}</p>
+                    <p className="text-xs text-muted-foreground">Standard {sel?.type === 'dryer' ? 'dry' : 'wash'} cycle</p>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">${(sel?.price ?? 0).toFixed(2)}</p>
+                </div>
+              )
+            })()}
             <button
               onClick={() => onNav('cycle-select')}
               className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2"
@@ -722,9 +735,267 @@ function ProfileScreen() {
   )
 }
 
+// ── Pre-auth screens ────────────────────────────────────────────────────────
+
+type AuthStep = 'landing' | 'phone' | 'verify' | 'name' | 'payment-setup' | 'ready'
+
+function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState<AuthStep>('landing')
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [agreed, setAgreed] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const advance = (next: AuthStep) => {
+    setLoading(true)
+    setTimeout(() => { setLoading(false); setStep(next) }, 900)
+  }
+
+  if (step === 'landing') {
+    return (
+      <div className="flex flex-col h-full justify-between px-6 py-8">
+        <div className="flex flex-col items-center gap-4 mt-8">
+          <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center shadow-lg">
+            <svg width="40" height="44" viewBox="0 0 20 22" fill="none">
+              <path d="M5 10V7C5 4.24 7.24 2 10 2C12.76 2 15 4.24 15 7V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              <rect x="2" y="10" width="16" height="10" rx="3" fill="white" />
+              <circle cx="10" cy="15" r="1.5" fill="oklch(0.45 0.18 255)" />
+              <rect x="9.25" y="15.5" width="1.5" height="2.5" rx="0.5" fill="oklch(0.45 0.18 255)" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground">DrumLatch</h1>
+            <p className="text-muted-foreground text-sm mt-1.5">Secure your laundry. Every cycle.</p>
+          </div>
+          <div className="flex flex-col gap-3 w-full mt-4">
+            {[
+              { icon: Shield, label: 'Anti-theft machine locking' },
+              { icon: Zap, label: 'Earn DrumTokens on every cycle' },
+              { icon: Bell, label: 'Real-time pickup reminders' },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
+                <Icon className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm text-foreground">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <button onClick={() => setStep('phone')} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl">
+            Get Started
+          </button>
+          <button onClick={() => setStep('phone')} className="w-full bg-card border border-border text-foreground font-semibold py-3.5 rounded-xl text-sm">
+            Sign In
+          </button>
+          <p className="text-center text-[10px] text-muted-foreground px-4">
+            By continuing you agree to our Terms of Service and Privacy Policy
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'phone') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6">
+        <button onClick={() => setStep('landing')} className="self-start p-1.5 rounded-lg bg-muted">
+          <ChevronLeft className="w-4 h-4 text-foreground" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Enter your phone number</h2>
+          <p className="text-sm text-muted-foreground mt-1">We&apos;ll send you a verification code</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 bg-card border-2 border-primary rounded-xl px-4 py-3">
+            <span className="text-sm font-semibold text-muted-foreground">+1</span>
+            <div className="w-px h-4 bg-border" />
+            <input
+              className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="(555) 000-0000"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              inputMode="tel"
+              aria-label="Phone number"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">Standard message rates may apply. Pre-authorization of $1.00 is required to activate your account.</p>
+        </div>
+        <button
+          onClick={() => advance('verify')}
+          disabled={phone.length < 7 || loading}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Send Code'}
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'verify') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6">
+        <button onClick={() => setStep('phone')} className="self-start p-1.5 rounded-lg bg-muted">
+          <ChevronLeft className="w-4 h-4 text-foreground" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Verify your number</h2>
+          <p className="text-sm text-muted-foreground mt-1">Enter the 6-digit code sent to {phone || '(555) 201-4488'}</p>
+        </div>
+        <div className="flex gap-2 justify-center">
+          {[0,1,2,3,4,5].map(i => (
+            <div key={i} className={cn('w-11 h-14 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-colors', i < code.length ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card text-muted-foreground')}>
+              {code[i] ?? '·'}
+            </div>
+          ))}
+        </div>
+        {/* Numeric keypad */}
+        <div className="grid grid-cols-3 gap-3 mt-2">
+          {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((k, i) => (
+            <button key={i} onClick={() => {
+              if (k === '⌫') setCode(c => c.slice(0,-1))
+              else if (k !== '' && code.length < 6) setCode(c => c + k)
+            }} className={cn('h-12 rounded-xl text-lg font-semibold transition-colors', k === '' ? '' : 'bg-card border border-border text-foreground hover:bg-muted active:scale-95')}>
+              {k}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => advance('name')}
+          disabled={code.length < 6 || loading}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Verify'}
+        </button>
+        <button onClick={() => advance('verify')} className="text-center text-xs text-primary font-medium">Resend code</button>
+      </div>
+    )
+  }
+
+  if (step === 'name') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-6">
+        <button onClick={() => setStep('verify')} className="self-start p-1.5 rounded-lg bg-muted">
+          <ChevronLeft className="w-4 h-4 text-foreground" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">What&apos;s your name?</h2>
+          <p className="text-sm text-muted-foreground mt-1">This is how we&apos;ll greet you in the app</p>
+        </div>
+        <input
+          className="bg-card border-2 border-primary rounded-xl px-4 py-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground w-full"
+          placeholder="First name"
+          value={firstName}
+          onChange={e => setFirstName(e.target.value)}
+          aria-label="First name"
+        />
+        <button
+          onClick={() => advance('payment-setup')}
+          disabled={firstName.trim().length < 2 || loading}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : 'Continue'}
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'payment-setup') {
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 gap-5 pb-8 overflow-y-auto">
+        <button onClick={() => setStep('name')} className="self-start p-1.5 rounded-lg bg-muted">
+          <ChevronLeft className="w-4 h-4 text-foreground" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Add a payment method</h2>
+          <p className="text-sm text-muted-foreground mt-1">Required to use DrumLatch machines. A $1.00 pre-authorization hold will be placed and immediately released.</p>
+        </div>
+
+        {/* Pre-auth explanation */}
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex gap-3">
+          <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Why a pre-authorization?</p>
+            <p className="text-xs text-muted-foreground mt-1">We hold $1.00 to verify your card is valid and to protect machines from misuse. The hold is released immediately — you are only charged for cycles you start.</p>
+          </div>
+        </div>
+
+        {/* Card fields */}
+        <div className="flex flex-col gap-3">
+          <div className="bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+            <p className="text-[10px] text-muted-foreground mb-1">Card number</p>
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="1234 5678 9012 3456" inputMode="numeric" aria-label="Card number" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+              <p className="text-[10px] text-muted-foreground mb-1">Expiry</p>
+              <input className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="MM / YY" inputMode="numeric" aria-label="Expiry date" />
+            </div>
+            <div className="flex-1 bg-card border-2 border-border focus-within:border-primary rounded-xl px-4 py-3 transition-colors">
+              <p className="text-[10px] text-muted-foreground mb-1">CVV</p>
+              <input className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" placeholder="•••" inputMode="numeric" aria-label="CVV" />
+            </div>
+          </div>
+        </div>
+
+        {/* Consent */}
+        <button
+          onClick={() => setAgreed(a => !a)}
+          className="flex items-start gap-3 text-left"
+          aria-pressed={agreed}
+        >
+          <div className={cn('w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors', agreed ? 'bg-primary border-primary' : 'border-border bg-card')}>
+            {agreed && <Check className="w-3 h-3 text-white" />}
+          </div>
+          <p className="text-xs text-muted-foreground">I authorize DrumLatch to place a $1.00 pre-authorization hold on my card to verify my account. This hold will be released immediately.</p>
+        </button>
+
+        <button
+          onClick={() => advance('ready')}
+          disabled={!agreed || loading}
+          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <><Lock className="w-4 h-4" /> Authorize & Continue</>}
+        </button>
+        <p className="text-center text-[10px] text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
+      </div>
+    )
+  }
+
+  // step === 'ready'
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-6 gap-6">
+      <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center">
+        <CheckCircle2 className="w-10 h-10 text-success" />
+      </div>
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-foreground">You&apos;re all set!</h2>
+        <p className="text-sm text-muted-foreground mt-1.5">Pre-authorization confirmed. Your account is ready to use.</p>
+      </div>
+      <div className="bg-card border border-border rounded-2xl p-4 w-full">
+        <div className="flex justify-between text-sm mb-2">
+          <span className="text-muted-foreground">Pre-auth hold</span>
+          <span className="font-semibold text-foreground">$1.00</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Status</span>
+          <span className="font-semibold text-success">Released</span>
+        </div>
+      </div>
+      <button onClick={onComplete} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+        Start Using DrumLatch <ArrowRight className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
 // ── Root Customer App ────────────────────────────────────────────────────────
 
 export function CustomerApp() {
+  const [authed, setAuthed] = useState(false)
   const [screen, setScreen] = useState<Screen>('home')
   const [history, setHistory] = useState<Screen[]>(['home'])
 
@@ -751,7 +1022,15 @@ export function CustomerApp() {
 
       {/* Screen tabs */}
       <div className="flex flex-wrap gap-2 mb-8 justify-center max-w-2xl">
-        {([
+        {/* Pre-auth tab */}
+        <button
+          onClick={() => setAuthed(false)}
+          className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', !authed ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground')}
+        >
+          Pre-Auth Flow
+        </button>
+        {/* App screen tabs — only shown once authed */}
+        {authed && ([
           ['home', 'Home'],
           ['machine-select', 'Select Machine'],
           ['cycle-select', 'Choose Cycle'],
@@ -773,14 +1052,15 @@ export function CustomerApp() {
       </div>
 
       <PhoneFrame>
-        {screen === 'home' && <HomeScreen onNav={navigate} />}
-        {screen === 'machine-select' && <MachineSelectScreen onNav={navigate} onBack={goBack} />}
-        {screen === 'cycle-select' && <CycleSelectScreen onNav={navigate} onBack={goBack} />}
-        {screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
-        {screen === 'locking' && <LockingScreen onNav={navigate} />}
-        {screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
-        {screen === 'cycle-complete' && <CycleCompleteScreen onNav={navigate} />}
-        {screen === 'unlock' && (
+        {!authed && <PreAuthFlow onComplete={() => setAuthed(true)} />}
+        {authed && screen === 'home' && <HomeScreen onNav={navigate} />}
+        {authed && screen === 'machine-select' && <MachineSelectScreen onNav={navigate} onBack={goBack} />}
+        {authed && screen === 'cycle-select' && <CycleSelectScreen onNav={navigate} onBack={goBack} />}
+        {authed && screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
+        {authed && screen === 'locking' && <LockingScreen onNav={navigate} />}
+        {authed && screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
+        {authed && screen === 'cycle-complete' && <CycleCompleteScreen onNav={navigate} />}
+        {authed && screen === 'unlock' && (
           <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
             <LockAnimation state="unlocking" size="xl" />
             <div className="text-center animate-slide-up">
@@ -790,7 +1070,7 @@ export function CustomerApp() {
             </div>
           </div>
         )}
-        {screen === 'pickup' && (
+        {authed && screen === 'pickup' && (
           <div className="flex flex-col items-center justify-center h-full gap-6 px-6 pb-16">
             <CheckCircle2 className="w-16 h-16 text-success" />
             <div className="text-center">
@@ -801,9 +1081,9 @@ export function CustomerApp() {
             <button onClick={() => navigate('home')} className="bg-primary text-primary-foreground font-bold px-8 py-3.5 rounded-xl">Back to Home</button>
           </div>
         )}
-        {screen === 'rewards' && <RewardsScreen />}
-        {screen === 'profile' && <ProfileScreen />}
-        {screen === 'history' && (
+        {authed && screen === 'rewards' && <RewardsScreen />}
+        {authed && screen === 'profile' && <ProfileScreen />}
+        {authed && screen === 'history' && (
           <div className="flex flex-col h-full pb-16">
             <div className="bg-sidebar px-5 pt-4 pb-4">
               <h1 className="text-sidebar-foreground font-bold text-lg">Wash History</h1>
