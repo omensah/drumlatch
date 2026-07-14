@@ -12,7 +12,7 @@ import {
 import { MACHINES } from '@/lib/data'
 
 type Screen =
-  | 'home' | 'machine-select' | 'cycle-select' | 'payment' | 'locking' | 'active-cycle'
+  | 'home' | 'machine-select' | 'payment' | 'locking' | 'active-cycle'
   | 'cycle-complete' | 'unlock' | 'pickup' | 'rewards' | 'profile' | 'history'
 
 /**
@@ -311,10 +311,10 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
               )
             })()}
             <button
-              onClick={() => onNav('cycle-select')}
+              onClick={() => onNav('payment')}
               className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2"
             >
-              Select Cycle <ArrowRight className="w-4 h-4" />
+              Confirm &amp; Pay <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -323,49 +323,6 @@ function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; on
   )
 }
 
-function CycleSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
-  const [selected, setSelected] = useState('normal')
-  const cycles = [
-    { id: 'quick', label: 'Quick Wash', duration: '25 min', price: 3.50, desc: 'Lightly soiled items' },
-    { id: 'normal', label: 'Normal Wash', duration: '40 min', price: 4.50, desc: 'Everyday laundry' },
-    { id: 'heavy', label: 'Heavy Duty', duration: '55 min', price: 5.25, desc: 'Towels & bedding' },
-    { id: 'delicate', label: 'Delicate', duration: '30 min', price: 4.00, desc: 'Gentle fabrics' },
-  ]
-  const sel = cycles.find(c => c.id === selected)!
-  return (
-    <div className="flex flex-col h-full pb-16 overflow-y-auto">
-      <div className="bg-sidebar px-5 pt-4 pb-4 flex items-center gap-3">
-        <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent">
-          <ChevronLeft className="w-4 h-4 text-sidebar-foreground" />
-        </button>
-        <div>
-          <h1 className="text-sidebar-foreground font-bold">Select Cycle</h1>
-          <p className="text-sidebar-foreground/50 text-xs">Washer W-03</p>
-        </div>
-      </div>
-      <div className="px-5 pt-4 flex flex-col gap-3">
-        {cycles.map(c => (
-          <button key={c.id} onClick={() => setSelected(c.id)} className={cn('flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left', selected === c.id ? 'border-primary bg-primary/5' : 'border-border bg-card')}>
-            <div>
-              <p className="font-semibold text-foreground text-sm">{c.label}</p>
-              <p className="text-xs text-muted-foreground">{c.desc} · {c.duration}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-bold text-foreground">${c.price.toFixed(2)}</p>
-              {selected === c.id && <Check className="w-4 h-4 text-primary ml-auto mt-1" />}
-            </div>
-          </button>
-        ))}
-        <button
-          onClick={() => onNav('payment')}
-          className="w-full mt-2 bg-primary text-primary-foreground font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2"
-        >
-          Continue — ${sel.price.toFixed(2)} <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
   const [loading, setLoading] = useState(false)
@@ -1103,7 +1060,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     )
   }
 
-  // ── OTP verification ──────────────────────────────────────────────────────
+  // ── OTP verification ──────────���───────────────────────────────────────────
   if (step === 'verify') {
     return (
       <div className="flex flex-col h-full px-6 pt-8 gap-6">
@@ -1421,7 +1378,6 @@ export function CustomerApp() {
         {authed && ([
           ['home', 'Home'],
           ['machine-select', 'Select Machine'],
-          ['cycle-select', 'Choose Cycle'],
           ['payment', 'Payment'],
           ['locking', 'Lock Animation'],
           ['active-cycle', 'Active Cycle'],
@@ -1443,7 +1399,6 @@ export function CustomerApp() {
         {!authed && <PreAuthFlow onComplete={() => setAuthed(true)} />}
         {authed && screen === 'home' && <HomeScreen onNav={navigate} />}
         {authed && screen === 'machine-select' && <MachineSelectScreen onNav={navigate} onBack={goBack} />}
-        {authed && screen === 'cycle-select' && <CycleSelectScreen onNav={navigate} onBack={goBack} />}
         {authed && screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
         {authed && screen === 'locking' && <LockingScreen onNav={navigate} />}
         {authed && screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
