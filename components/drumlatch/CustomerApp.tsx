@@ -9,40 +9,9 @@ import {
   Phone, MessageCircle, X, Plus, Minus, QrCode, Bluetooth, CreditCard,
   Settings, ArrowRight, Check, Trophy, Flame, TrendingUp
 } from 'lucide-react'
-import { MACHINES } from '@/lib/data'
-
 type Screen =
-  | 'home' | 'machine-select' | 'payment' | 'locking' | 'active-cycle'
+  | 'home' | 'qr-scan' | 'payment' | 'locking' | 'active-cycle'
   | 'cycle-complete' | 'unlock' | 'pickup' | 'rewards' | 'profile' | 'history'
-
-/**
- * Map internal machine status to what a customer should see.
- * Overdue is an operational concern — customers see it as "in-use" so they
- * don't try to interact with a machine pending pickup.
- * Alert/offline machines are shown as unavailable.
- */
-type CustomerMachineStatus = 'available' | 'in-use' | 'offline'
-
-function toCustomerStatus(status: string): CustomerMachineStatus {
-  if (status === 'available') return 'available'
-  if (status === 'offline' || status === 'alert') return 'offline'
-  return 'in-use' // covers: in-use, overdue, locked, reserved
-}
-
-// Price map derived from the machines API response — keyed by machine number
-const MACHINE_PRICE: Record<string, number> = {
-  'W-01': 4.50, 'W-02': 4.50, 'W-03': 4.50, 'W-04': 5.25, 'W-05': 4.50, 'W-06': 4.50,
-  'D-01': 3.75, 'D-02': 3.75, 'D-03': 3.75, 'D-04': 4.25, 'D-05': 3.75, 'D-06': 3.75,
-}
-
-// Derived from MACHINES — customer-safe view, no overdue status exposed
-const CUSTOMER_MACHINES = MACHINES.map(m => ({
-  id: m.id,
-  number: m.number,
-  type: m.type,
-  status: toCustomerStatus(m.status),
-  price: MACHINE_PRICE[m.number] ?? (m.type === 'washer' ? 4.50 : 3.75),
-}))
 
 const ACHIEVEMENTS = [
   { id: 'first', label: 'First Secure Pickup', icon: Shield, earned: true, tokens: 50 },
@@ -150,11 +119,11 @@ function HomeScreen({ onNav }: { onNav: (s: Screen) => void }) {
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-2.5">
             <button
-              onClick={() => onNav('machine-select')}
+              onClick={() => onNav('qr-scan')}
               className="flex flex-col items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors"
             >
-              <Lock className="w-6 h-6 text-primary" />
-              <span className="text-xs font-semibold text-foreground">Start Wash</span>
+              <QrCode className="w-6 h-6 text-primary" />
+              <span className="text-xs font-semibold text-foreground">Scan QR</span>
             </button>
             <button
               onClick={() => onNav('active-cycle')}
@@ -219,102 +188,153 @@ function HomeScreen({ onNav }: { onNav: (s: Screen) => void }) {
   )
 }
 
-function MachineSelectScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
-  const [selected, setSelected] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'washer' | 'dryer'>('all')
-  const visible = filter === 'all' ? CUSTOMER_MACHINES : CUSTOMER_MACHINES.filter(m => m.type === filter)
+// Simulated QR scan result — in production this comes from the device QR code
+const DEMO_QR_MACHINE = { serial: 'DL-2024-W-03', number: 'W-03', type: 'washer' as const }
 
-  const statusColor = (s: CustomerMachineStatus) => ({
-    available: 'bg-success/10 border-success/30 text-success',
-    'in-use': 'bg-primary/10 border-primary/20 text-primary',
-    offline: 'bg-muted border-border text-muted-foreground',
-  }[s] ?? 'bg-muted border-border text-muted-foreground')
+type ScanState = 'scanning' | 'found' | 'error'
+
+function QRScanScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
+  const [scanState, setScanState] = useState<ScanState>('scanning')
+
+  // Simulate the QR code being read from the physical machine label
+  const handleSimulateScan = () => {
+    setScanState('found')
+  }
+
+  const handleError = () => {
+    setScanState('error')
+  }
 
   return (
-    <div className="flex flex-col h-full pb-16 overflow-y-auto">
+    <div className="flex flex-col h-full pb-16">
       <div className="bg-sidebar px-5 pt-4 pb-4 flex items-center gap-3">
-        <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent">
+        <button onClick={onBack} className="p-1.5 rounded-lg bg-sidebar-accent" aria-label="Go back">
           <ChevronLeft className="w-4 h-4 text-sidebar-foreground" />
         </button>
         <div>
-          <h1 className="text-sidebar-foreground font-bold">Select Machine</h1>
-          <p className="text-sidebar-foreground/50 text-xs">SpinSpot — 123 Main St</p>
+          <h1 className="text-sidebar-foreground font-bold">Scan Machine QR</h1>
+          <p className="text-sidebar-foreground/50 text-xs">Point camera at the QR code on the machine</p>
         </div>
       </div>
 
-      <div className="px-5 pt-4">
-        {/* Filter */}
-        <div className="flex gap-2 mb-4">
-          {(['all', 'washer', 'dryer'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)} className={cn('flex-1 py-2 text-xs font-semibold rounded-xl transition-colors', filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-              {f === 'all' ? 'All' : f === 'washer' ? 'Washers' : 'Dryers'}
+      <div className="flex flex-col items-center px-5 pt-6 gap-5">
+        {/* Viewfinder */}
+        <div className="relative w-full aspect-square max-w-[240px] rounded-3xl overflow-hidden bg-foreground/5 border border-border flex items-center justify-center">
+          {/* Corner brackets */}
+          {[['top-3 left-3', 'border-t-2 border-l-2'], ['top-3 right-3', 'border-t-2 border-r-2'], ['bottom-3 left-3', 'border-b-2 border-l-2'], ['bottom-3 right-3', 'border-b-2 border-r-2']].map(([pos, borders]) => (
+            <div key={pos} className={cn('absolute w-6 h-6 border-primary rounded-sm', pos, borders)} />
+          ))}
+
+          {scanState === 'scanning' && (
+            <>
+              {/* Animated scan line */}
+              <div className="absolute inset-x-4 h-px bg-primary/60 animate-bounce" style={{ top: '50%' }} />
+              <div className="flex flex-col items-center gap-2">
+                <QrCode className="w-16 h-16 text-foreground/20" />
+              </div>
+            </>
+          )}
+
+          {scanState === 'found' && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-success" />
+              </div>
+            </div>
+          )}
+
+          {scanState === 'error' && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <X className="w-8 h-8 text-destructive" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* State-specific content */}
+        {scanState === 'scanning' && (
+          <div className="w-full flex flex-col gap-3">
+            <p className="text-center text-sm text-muted-foreground leading-relaxed">
+              Each machine has a unique QR code on its door. Only that exact machine will be locked to your account.
+            </p>
+            {/* Demo trigger — simulates a real camera scan */}
+            <button
+              onClick={handleSimulateScan}
+              className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2"
+            >
+              <QrCode className="w-4 h-4" /> Simulate Scan
             </button>
-          ))}
-        </div>
+            <button
+              onClick={handleError}
+              className="w-full bg-muted text-muted-foreground font-medium py-3 rounded-xl text-sm"
+            >
+              Can&apos;t scan? Enter serial manually
+            </button>
+          </div>
+        )}
 
-        {/* Legend */}
-        <div className="flex gap-3 mb-4 flex-wrap">
-          {([['available', 'Available'], ['in-use', 'In Use'], ['offline', 'Unavailable']] as [CustomerMachineStatus, string][]).map(([s, l]) => (
-            <span key={s} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={cn('w-2 h-2 rounded-full', {
-                'bg-success': s === 'available',
-                'bg-primary': s === 'in-use',
-                'bg-muted-foreground': s === 'offline',
-              })} />
-              {l}
-            </span>
-          ))}
-        </div>
-
-        {/* Machine grid */}
-        <div className="grid grid-cols-3 gap-2.5 mb-5">
-          {visible.map(m => {
-            const isSelectable = m.status === 'available'
-            const isSelected = selected === m.id
-            return (
-              <button
-                key={m.id}
-                disabled={!isSelectable}
-                onClick={() => setSelected(m.id)}
-                className={cn(
-                  'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all',
-                  isSelected ? 'border-primary bg-primary/10 shadow-md' : statusColor(m.status),
-                  !isSelectable && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                <WashingMachine className={cn('w-7 h-7', {
-                  'text-success': m.status === 'available',
-                  'text-primary': m.status === 'in-use',
-                  'text-muted-foreground': m.status === 'offline',
-                })} />
-                <span className="text-xs font-bold text-foreground">{m.number}</span>
-                <span className="text-[10px] capitalize text-muted-foreground leading-none">
-                  {m.status === 'in-use' ? 'In Use' : m.status === 'offline' ? 'Unavailable' : 'Available'}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {selected && (
-          <div className="bg-card rounded-2xl border border-border p-4 mb-4 animate-slide-up">
-            {(() => {
-              const sel = visible.find(m => m.id === selected)
-              return (
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="font-bold text-foreground">{sel?.number} — {sel?.type === 'dryer' ? 'Dryer' : 'Washer'}</p>
-                    <p className="text-xs text-muted-foreground">Standard {sel?.type === 'dryer' ? 'dry' : 'wash'} cycle</p>
-                  </div>
-                  <p className="text-lg font-bold text-foreground">${(sel?.price ?? 0).toFixed(2)}</p>
+        {scanState === 'found' && (
+          <div className="w-full flex flex-col gap-4">
+            {/* Resolved machine card */}
+            <div className="bg-card border border-success/30 rounded-2xl p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center shrink-0">
+                  <WashingMachine className="w-6 h-6 text-success" />
                 </div>
-              )
-            })()}
+                <div className="flex-1">
+                  <p className="font-bold text-foreground">Washer {DEMO_QR_MACHINE.number}</p>
+                  <p className="text-xs text-muted-foreground">Serial: {DEMO_QR_MACHINE.serial}</p>
+                  <p className="text-xs text-muted-foreground">SpinSpot — 123 Main St</p>
+                </div>
+                <span className="text-[10px] font-semibold text-success bg-success/10 px-2 py-1 rounded-full">Available</span>
+              </div>
+            </div>
+            <div className="bg-muted/50 border border-border rounded-xl px-4 py-3 flex items-start gap-2.5">
+              <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This lock will be bound exclusively to serial <span className="font-semibold text-foreground">{DEMO_QR_MACHINE.serial}</span>. No other machine can be activated with this session.
+              </p>
+            </div>
             <button
               onClick={() => onNav('payment')}
-              className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2"
+              className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2"
             >
-              Confirm &amp; Pay <ArrowRight className="w-4 h-4" />
+              <Lock className="w-4 h-4" /> Confirm &amp; Activate Lock
+            </button>
+            <button onClick={() => setScanState('scanning')} className="text-sm text-center text-muted-foreground">
+              Scan a different machine
+            </button>
+          </div>
+        )}
+
+        {scanState === 'error' && (
+          <div className="w-full flex flex-col gap-4">
+            <div className="bg-destructive/5 border border-destructive/20 rounded-2xl p-4 flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">QR code not recognised</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Make sure you are scanning the DrumLatch QR code on the machine door, not a sticker or label nearby.
+                </p>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Enter serial number</p>
+              <input
+                className="bg-muted border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground w-full font-mono tracking-widest"
+                placeholder="DL-2024-X-00"
+                aria-label="Machine serial number"
+              />
+              <button
+                onClick={() => setScanState('found')}
+                className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 mt-1"
+              >
+                Look Up Machine
+              </button>
+            </div>
+            <button onClick={() => setScanState('scanning')} className="text-sm text-center text-primary font-medium">
+              Try scanning again
             </button>
           </div>
         )}
@@ -1509,7 +1529,7 @@ export function CustomerApp() {
         {/* App screen tabs — only shown once authed */}
         {authed && ([
           ['home', 'Home'],
-          ['machine-select', 'Select Machine'],
+          ['qr-scan', 'Scan QR'],
           ['payment', 'Payment'],
           ['locking', 'Lock Animation'],
           ['active-cycle', 'Active Cycle'],
@@ -1530,7 +1550,7 @@ export function CustomerApp() {
       <PhoneFrame>
         {!authed && <PreAuthFlow onComplete={() => setAuthed(true)} />}
         {authed && screen === 'home' && <HomeScreen onNav={navigate} />}
-        {authed && screen === 'machine-select' && <MachineSelectScreen onNav={navigate} onBack={goBack} />}
+        {authed && screen === 'qr-scan' && <QRScanScreen onNav={navigate} onBack={goBack} />}
         {authed && screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
         {authed && screen === 'locking' && <LockingScreen onNav={navigate} />}
         {authed && screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
