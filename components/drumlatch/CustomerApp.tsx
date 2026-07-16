@@ -347,6 +347,7 @@ function QRScanScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: (
 function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: () => void }) {
   const [loading, setLoading] = useState(false)
   const [preAuthStep, setPreAuthStep] = useState<'idle' | 'authorizing' | 'confirmed'>('idle')
+  const [locked, setLocked] = useState(false)
 
   const handlePay = () => {
     // Step 1: show pre-auth collecting state
@@ -354,8 +355,16 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
     setTimeout(() => {
       // Step 2: pre-auth confirmed, proceed to locking
       setPreAuthStep('confirmed')
-      setTimeout(() => onNav('locking'), 700)
+      setTimeout(() => {
+        setLocked(true)
+        setTimeout(() => onNav('locking'), 600)
+      }, 700)
     }, 1200)
+  }
+
+  const handleQuickLock = () => {
+    setLocked(true)
+    setTimeout(() => onNav('locking'), 300)
   }
 
   return (
@@ -442,6 +451,18 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
             <><Lock className="w-4 h-4" /> Lock Machine</>
           )}
         </button>
+
+        {/* Quick lock control — for when user just wants to lock immediately without payment flow */}
+        {preAuthStep === 'idle' && (
+          <button
+            onClick={handleQuickLock}
+            className="w-full bg-card border border-border text-foreground font-medium py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-muted/50 transition-colors"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Quick Lock (Skip to Setup)
+          </button>
+        )}
+
         <p className="text-center text-xs text-muted-foreground">Secured by DrumLatch · 256-bit encryption</p>
       </div>
     </div>
@@ -554,6 +575,25 @@ function ActiveCycleScreen({ onNav }: { onNav: (s: Screen) => void }) {
           <div><p className="text-xs text-muted-foreground">Grace Period</p><p className="font-bold text-foreground text-sm">10 min</p></div>
         </div>
 
+        {/* Primary unlock action */}
+        <button
+          onClick={() => onNav('unlock')}
+          className="w-full bg-destructive/10 border border-destructive/30 text-destructive font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-destructive/15 transition-colors"
+        >
+          <Unlock className="w-4 h-4" /> Emergency Unlock
+        </button>
+
+        {/* Informational section */}
+        <div className="bg-warning/5 border border-warning/20 rounded-2xl p-4 flex gap-3">
+          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Cycle Still Running</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Your laundry is still being washed/dried. Unlock only if necessary — you won&apos;t earn the on-time bonus if you remove items early.
+            </p>
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="flex flex-col gap-2.5">
           <button className="flex items-center justify-between w-full p-4 bg-card border border-border rounded-xl hover:bg-muted/50 transition-colors">
@@ -575,8 +615,6 @@ function ActiveCycleScreen({ onNav }: { onNav: (s: Screen) => void }) {
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground pb-2">Cannot unlock during active cycle. Contact staff for emergencies.</p>
       </div>
 
       {/* Notify modal */}
@@ -1550,12 +1588,12 @@ export function CustomerApp() {
       <PhoneFrame>
         {!authed && <PreAuthFlow onComplete={() => setAuthed(true)} />}
         {authed && screen === 'home' && <HomeScreen onNav={navigate} />}
-        {authed && screen === 'qr-scan' && <QRScanScreen onNav={navigate} onBack={goBack} />}
-        {authed && screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
-        {authed && screen === 'locking' && <LockingScreen onNav={navigate} />}
-        {authed && screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
-        {authed && screen === 'cycle-complete' && <CycleCompleteScreen onNav={navigate} />}
-        {authed && screen === 'unlock' && (
+        {screen === 'qr-scan' && <QRScanScreen onNav={navigate} onBack={goBack} />}
+        {screen === 'payment' && <PaymentScreen onNav={navigate} onBack={goBack} />}
+        {screen === 'locking' && <LockingScreen onNav={navigate} />}
+        {screen === 'active-cycle' && <ActiveCycleScreen onNav={navigate} />}
+        {screen === 'cycle-complete' && <CycleCompleteScreen onNav={navigate} />}
+        {screen === 'unlock' && (
           <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
             <LockAnimation state="unlocking" size="xl" />
             <div className="text-center animate-slide-up">
@@ -1565,13 +1603,14 @@ export function CustomerApp() {
             </div>
           </div>
         )}
-        {authed && screen === 'pickup' && (
+        {screen === 'pickup' && (
           <div className="flex flex-col items-center justify-center h-full gap-6 px-6 pb-16">
             <CheckCircle2 className="w-16 h-16 text-success" />
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground mb-2">Pickup Complete!</p>
               <p className="text-sm text-muted-foreground mb-1">Thank you for picking up on time.</p>
-              <p className="text-sm font-semibold text-success">+60 DrumTokens earned!</p>
+              {authed && <p className="text-sm font-semibold text-success">+60 DrumTokens earned!</p>}
+              {!authed && <p className="text-sm text-muted-foreground">Your deposit has been reversed.</p>}
             </div>
             <button onClick={() => navigate('home')} className="bg-primary text-primary-foreground font-bold px-8 py-3.5 rounded-xl">Back to Home</button>
           </div>
