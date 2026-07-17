@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DrumLatch</title>
+<style>
+  :root{
+    --bg:#0f172a;--card:#1e293b;--border:#334155;--fg:#f1f5f9;
+    --muted:#94a3b8;--primary:#3b82f6;--success:#22c55e;--danger:#ef4444;--warn:#f59e0b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  .app{width:100%;max-width:420px;min-height:100vh;display:flex;flex-direction:column;padding:20px}
+  header{display:flex;align-items:center;gap:10px;padding-bottom:20px}
+  .logo{width:40px;height:40px;background:var(--primary);border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:20px}
+  h1{font-size:20px}
+  header p{font-size:11px;color:var(--muted)}
+  .screen{display:none;flex-direction:column;gap:16px;flex:1}
+  .screen.on{display:flex}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+  .btn{width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;
+    cursor:pointer;color:#fff;background:var(--primary);transition:opacity .15s}
+  .btn:active{opacity:.7}
+  .btn.ghost{background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:500}
+  .btn.danger{background:var(--danger)}
+  .btn.success{background:var(--success)}
+  .btn:disabled{opacity:.4}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;flex:1;text-align:center}
+  .big-icon{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:44px}
+  .ic-blue{background:rgba(59,130,246,.15)}
+  .ic-green{background:rgba(34,197,94,.15)}
+  .muted{color:var(--muted);font-size:13px;line-height:1.5}
+  .status-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+  .status-row b{font-weight:600}
+  .green{color:var(--success)}
+  .timer{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums}
+  .ring{position:relative;width:180px;height:180px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .t{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center}
+  .steps{display:flex;flex-direction:column;gap:10px}
+  .step{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
+  .step .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+  .step.done{color:var(--fg)}
+  .step.done .dot{background:var(--success);border-color:var(--success)}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px}
+  .pill.locked{background:rgba(239,68,68,.15);color:var(--danger)}
+  .pill.unlocked{background:rgba(34,197,94,.15);color:var(--success)}
+  .conn{position:fixed;bottom:12px;font-size:11px;color:var(--muted)}
+  .conn .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+  .qr-box{width:190px;height:190px;border:2px dashed var(--border);border-radius:20px;
+    display:flex;align-items:center;justify-content:center;font-size:64px;position:relative;overflow:hidden}
+  .scanline{position:absolute;left:10px;right:10px;height:2px;background:var(--primary);
+    animation:scan 1.6s ease-in-out infinite}
+  @keyframes scan{0%,100%{top:15%}50%{top:85%}}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  .pulse{animation:pulse 1.2s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">&#128274;</div>
+    <div>
+      <h1>DrumLatch</h1>
+      <p>Smart laundry lock &mdash; ESP32 demo</p>
+    </div>
+  </header>
+
+  <!-- HOME -->
+  <section id="s-home" class="screen on">
+    <div class="card">
+      <div class="status-row"><span class="muted">Machine</span><b>Washer W-03</b></div>
+      <div class="status-row"><span class="muted">Serial</span><b>DL-2024-W-03</b></div>
+      <div class="status-row"><span class="muted">Lock state</span>
+        <span id="h-state" class="pill unlocked">UNLOCKED</span></div>
+    </div>
+    <button class="btn" onclick="go('scan')">&#128247; Scan Machine QR</button>
+    <button class="btn ghost" onclick="lockNow()">&#128274; Lock Directly (Demo)</button>
+  </section>
+
+  <!-- SCAN -->
+  <section id="s-scan" class="screen">
+    <div class="center">
+      <div class="qr-box"><div class="scanline"></div>&#9633;</div>
+      <p class="muted">Point at the QR code on the machine door.<br>
+        Code is bound to serial <b style="color:var(--fg)">DL-2024-W-03</b>.</p>
+      <button class="btn" onclick="go('confirm')">Simulate Scan</button>
+      <button class="btn ghost" onclick="go('home')">Back</button>
+    </div>
+  </section>
+
+  <!-- CONFIRM -->
+  <section id="s-confirm" class="screen">
+    <div class="center">
+      <div class="big-icon ic-green">&#10004;</div>
+      <h2>Machine Found</h2>
+      <div class="card" style="width:100%">
+        <div class="status-row"><span class="muted">Machine</span><b>Washer W-03</b></div>
+        <div class="status-row"><span class="muted">Serial</span><b>DL-2024-W-03</b></div>
+        <div class="status-row"><span class="muted">Status</span><b class="green">Available</b></div>
+      </div>
+      <button class="btn" onclick="lockNow()">&#128274; Lock Machine</button>
+      <button class="btn ghost" onclick="go('scan')">Scan Again</button>
+    </div>
+  </section>
+
+  <!-- LOCKING -->
+  <section id="s-locking" class="screen">
+    <div class="center">
+      <div class="big-icon ic-blue pulse">&#128274;</div>
+      <h2>Engaging Lock&hellip;</h2>
+      <div class="steps" id="lock-steps">
+        <div class="step"><span class="dot">1</span>Connecting to device</div>
+        <div class="step"><span class="dot">2</span>Verifying serial</div>
+        <div class="step"><span class="dot">3</span>Engaging latch</div>
+        <div class="step"><span class="dot">4</span>Machine secured</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ACTIVE -->
+  <section id="s-active" class="screen">
+    <div class="center">
+      <span class="pill locked">LOCKED</span>
+      <div class="ring">
+        <svg width="180" height="180">
+          <circle cx="90" cy="90" r="80" stroke="#334155" stroke-width="10" fill="none"/>
+          <circle id="ring-fg" cx="90" cy="90" r="80" stroke="#3b82f6" stroke-width="10"
+            fill="none" stroke-linecap="round" stroke-dasharray="502.6" stroke-dashoffset="0"/>
+        </svg>
+        <div class="t">
+          <div class="timer" id="timer">0:30</div>
+          <span class="muted">remaining</span>
+        </div>
+      </div>
+      <p class="muted">Vibration sensor is monitoring the cycle.<br>Door stays locked until the cycle ends.</p>
+      <button class="btn danger" onclick="unlockNow()">&#128275; Unlock Now</button>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="s-done" class="screen">
+    <div class="center">
+      <div class="big-icon ic-green">&#10004;</div>
+      <h2>Unlocked!</h2>
+      <p class="muted">Cycle complete. Door is open &mdash;<br>grab your laundry.</p>
+      <button class="btn success" onclick="reset()">Done</button>
+    </div>
+  </section>
+</div>
+
+<div class="conn"><span class="dot" id="conn-dot" style="background:var(--warn)"></span><span id="conn-txt">checking device&hellip;</span></div>
+
+<script>
+var device=false, timerId=null, remain=30, TOTAL=30;
+
+function $(id){return document.getElementById(id)}
+function go(name){
+  var s=document.querySelectorAll('.screen');
+  for(var i=0;i<s.length;i++) s[i].classList.remove('on');
+  $('s-'+name).classList.add('on');
+}
+
+/* ---- device API (ESP32 endpoints); falls back to demo mode ---- */
+function api(path){
+  fetch(path,{method:'POST'}).catch(function(){});
+}
+function checkDevice(){
+  fetch('/api/status').then(function(r){return r.json()}).then(function(j){
+    device=true;
+    $('conn-dot').style.background='#22c55e';
+    $('conn-txt').textContent='device connected';
+    setState(j.locked);
+  }).catch(function(){
+    device=false;
+    $('conn-dot').style.background='#f59e0b';
+    $('conn-txt').textContent='demo mode (no device)';
+  });
+}
+function setState(locked){
+  var el=$('h-state');
+  el.textContent=locked?'LOCKED':'UNLOCKED';
+  el.className='pill '+(locked?'locked':'unlocked');
+}
+
+/* ---- flow ---- */
+function lockNow(){
+  go('locking');
+  if(device) api('/api/lock');
+  var steps=$('lock-steps').children, i=0;
+  var iv=setInterval(function(){
+    if(i<steps.length){steps[i].classList.add('done');steps[i].querySelector('.dot').innerHTML='&#10003;';i++;}
+    else{clearInterval(iv);setState(true);startCycle();go('active');}
+  },550);
+}
+
+function startCycle(){
+  remain=TOTAL;
+  updateTimer();
+  timerId=setInterval(function(){
+    remain--;
+    updateTimer();
+    if(remain<=0){clearInterval(timerId);doUnlock();}
+  },1000);
+}
+function updateTimer(){
+  var m=Math.floor(remain/60), s=remain%60;
+  $('timer').textContent=m+':'+(s<10?'0':'')+s;
+  var off=502.6*(1-remain/TOTAL);
+  $('ring-fg').setAttribute('stroke-dashoffset',off);
+}
+
+function unlockNow(){
+  if(timerId)clearInterval(timerId);
+  doUnlock();
+}
+function doUnlock(){
+  if(device) api('/api/unlock');
+  setState(false);
+  go('done');
+}
+function reset(){
+  var steps=$('lock-steps').children;
+  for(var i=0;i<steps.length;i++){
+    steps[i].classList.remove('done');
+    steps[i].querySelector('.dot').textContent=i+1;
+  }
+  go('home');
+}
+
+checkDevice();
+setInterval(checkDevice,10000);
+</script>
+</body>
+</html>
