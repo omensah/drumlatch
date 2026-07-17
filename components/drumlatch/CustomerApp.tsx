@@ -1267,6 +1267,13 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
         >
           {loading ? <Spinner /> : 'Continue'}
         </button>
+        <button
+          onClick={() => { setFirstName('Demo'); advance('payment-setup') }}
+          disabled={loading}
+          className="text-sm text-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          Skip for now
+        </button>
       </div>
     )
   }
