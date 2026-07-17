@@ -622,13 +622,17 @@ export function ManagerDashboard() {
           })}
         </nav>
         {sidebarOpen && (
-          <div className="px-3 py-4 border-t border-sidebar-border">
+          <div className="px-3 py-4 border-t border-sidebar-border flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-bold text-sidebar-foreground">AT</div>
               <div className="min-w-0">
                 <p className="text-sidebar-foreground text-xs font-semibold truncate">Alex Torres</p>
                 <p className="text-sidebar-foreground/40 text-[10px]">Manager</p>
               </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sidebar-foreground/30 text-[10px]">Powered by</span>
+              <img src="/images/drumlatch-logo.png" alt="DrumLatch" className="h-3 w-auto opacity-40" />
             </div>
           </div>
         )}

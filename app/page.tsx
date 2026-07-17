@@ -43,15 +43,7 @@ export default function Home() {
         <div className="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 20 22" fill="none">
-                <path d="M5 10V7C5 4.24 7.24 2 10 2C12.76 2 15 4.24 15 7V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <rect x="2" y="10" width="16" height="10" rx="3" fill="white" />
-                <circle cx="10" cy="15" r="1.5" fill="oklch(0.45 0.18 255)" />
-                <rect x="9.25" y="15.5" width="1.5" height="2.5" rx="0.5" fill="oklch(0.45 0.18 255)" />
-              </svg>
-            </div>
-            <span className="font-bold text-sidebar-foreground text-sm tracking-tight">DrumLatch</span>
+            <img src="/images/drumlatch-logo.png" alt="DrumLatch" className="h-5 w-auto" />
             <span className="hidden sm:inline text-xs text-sidebar-foreground/40 font-medium">Platform Preview</span>
           </div>
 

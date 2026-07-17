@@ -592,9 +592,12 @@ export function AdminPlatform() {
       <aside className={cn('bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200 shrink-0', sidebarOpen ? 'w-56' : 'w-14')}>
         <div className="flex items-center justify-between px-3 py-4 border-b border-sidebar-border">
           {sidebarOpen && (
-            <div>
-              <p className="text-sidebar-foreground font-bold text-sm">DrumLatch</p>
-              <p className="text-sidebar-foreground/40 text-xs">Super Admin</p>
+            <div className="flex items-center gap-2">
+              <img src="/images/drumlatch-icon.png" alt="" aria-hidden="true" className="w-6 h-6 shrink-0" />
+              <div>
+                <p className="text-sidebar-foreground font-bold text-sm">DrumLatch</p>
+                <p className="text-sidebar-foreground/40 text-xs">Super Admin</p>
+              </div>
             </div>
           )}
           <button onClick={() => setSidebarOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-sidebar-accent shrink-0">

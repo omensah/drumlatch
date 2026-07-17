@@ -896,13 +896,8 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     return (
       <div className="flex flex-col h-full justify-between px-6 py-8 overflow-y-auto">
         <div className="flex flex-col items-center gap-5 mt-4">
-          <div className="w-[72px] h-[72px] rounded-3xl bg-primary flex items-center justify-center shadow-lg">
-            <svg width="36" height="40" viewBox="0 0 20 22" fill="none" aria-hidden="true">
-              <path d="M5 10V7C5 4.24 7.24 2 10 2C12.76 2 15 4.24 15 7V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <rect x="2" y="10" width="16" height="10" rx="3" fill="white" />
-              <circle cx="10" cy="15" r="1.5" fill="oklch(0.45 0.18 255)" />
-              <rect x="9.25" y="15.5" width="1.5" height="2.5" rx="0.75" fill="oklch(0.45 0.18 255)" />
-            </svg>
+          <div className="w-[72px] h-[72px] rounded-3xl bg-sidebar border border-sidebar-border flex items-center justify-center shadow-lg">
+            <img src="/images/drumlatch-icon.png" alt="" aria-hidden="true" className="w-11 h-11" />
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground">DrumLatch</h1>
@@ -1502,7 +1497,7 @@ function PreAuthFlow({ onComplete }: { onComplete: () => void }) {
     )
   }
 
-  // ── Ready ─────────────────────────────────────────────────────────────────
+  // ── Ready ───────────────────────────────────────────────────────────���─────
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 gap-6">
       <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center">
