@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { engageLock, releaseLock } from '@/lib/lock-client'
 import { LockAnimation, CycleTimer } from './LockAnimation'
 import {
   Home, History, Gift, User, Bell, ChevronRight, ChevronLeft, Lock, Unlock,
@@ -473,6 +474,8 @@ function LockingScreen({ onNav }: { onNav: (s: Screen) => void }) {
   const [step, setStep] = useState(0)
   const steps = ['Deposit collected', 'Payment confirmed', 'Connecting to W-03', 'Engaging DrumLatch', 'Machine secured']
   useState(() => {
+    // Fire the physical lock via the ESP32 device (no-op demo fallback if absent)
+    engageLock()
     const timers = steps.map((_, i) => setTimeout(() => {
       setStep(i + 1)
       if (i === steps.length - 1) setTimeout(() => onNav('active-cycle'), 800)
@@ -577,7 +580,7 @@ function ActiveCycleScreen({ onNav }: { onNav: (s: Screen) => void }) {
 
         {/* Primary unlock action */}
         <button
-          onClick={() => onNav('unlock')}
+          onClick={() => { releaseLock(); onNav('unlock') }}
           className="w-full bg-destructive/10 border border-destructive/30 text-destructive font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-destructive/15 transition-colors"
         >
           <Unlock className="w-4 h-4" /> Emergency Unlock
@@ -668,7 +671,7 @@ function CycleCompleteScreen({ onNav }: { onNav: (s: Screen) => void }) {
         </div>
 
         {/* Actions */}
-        <button onClick={() => onNav('unlock')} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+        <button onClick={() => { releaseLock(); onNav('unlock') }} className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-xl flex items-center justify-center gap-2">
           <Unlock className="w-4 h-4" /> Unlock Machine
         </button>
         <button className="w-full bg-card border border-border text-foreground font-semibold py-3.5 rounded-xl">
