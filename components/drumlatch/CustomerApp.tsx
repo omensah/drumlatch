@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { engageLock, releaseLock } from '@/lib/lock-client'
 import { LockAnimation, CycleTimer } from './LockAnimation'
@@ -473,7 +473,7 @@ function PaymentScreen({ onNav, onBack }: { onNav: (s: Screen) => void; onBack: 
 function LockingScreen({ onNav }: { onNav: (s: Screen) => void }) {
   const [step, setStep] = useState(0)
   const steps = ['Deposit collected', 'Payment confirmed', 'Connecting to W-03', 'Engaging DrumLatch', 'Machine secured']
-  useState(() => {
+  useEffect(() => {
     // Fire the physical lock via the ESP32 device (no-op demo fallback if absent)
     engageLock()
     const timers = steps.map((_, i) => setTimeout(() => {
@@ -481,7 +481,7 @@ function LockingScreen({ onNav }: { onNav: (s: Screen) => void }) {
       if (i === steps.length - 1) setTimeout(() => onNav('active-cycle'), 800)
     }, (i + 1) * 700))
     return () => timers.forEach(clearTimeout)
-  })
+  },[])
   const done = step >= steps.length
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 gap-6">
