@@ -22,13 +22,12 @@
  */
 
 const BASE_URL = process.env.NEXT_PUBLIC_LOCK_DEVICE_URL ?? ''
-const TIMEOUT_MS = 3000
+const TIMEOUT_MS = 10000
 
 export interface LockStatus {
   locked: boolean
   vibration: 0 | 1
   serial: string
-  /** true when a real ESP32 answered; false when running in demo fallback */
   device: boolean
 }
 
@@ -38,53 +37,90 @@ export interface LockResult {
   device: boolean
 }
 
-// Demo fallback state (module-level so it survives re-renders)
 let demoLocked = false
 
-async function fetchWithTimeout(path: string, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  path: string,
+  init?: RequestInit
+): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
   try {
-    return await fetch(`${BASE_URL}${path}`, { ...init, signal: controller.signal })
+    return await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+    })
   } finally {
     clearTimeout(timer)
   }
 }
 
-/** Read the current lock state. Falls back to demo state if no device answers. */
 export async function getLockStatus(): Promise<LockStatus> {
-  try {
-    const res = await fetchWithTimeout('/api/status')
-    if (!res.ok) throw new Error(`status ${res.status}`)
-    const json = await res.json()
-    return { locked: !!json.locked, vibration: json.vibration ? 1 : 0, serial: json.serial ?? 'UNKNOWN', device: true }
-  } catch {
-    return { locked: demoLocked, vibration: 0, serial: 'DL-2024-W-03', device: false }
+  return {
+    locked: demoLocked,
+    vibration: 0,
+    serial: 'DL-2024-W-03',
+    device: false,
   }
 }
 
-/** Engage the physical lock. Resolves optimistically in demo mode. */
 export async function engageLock(): Promise<LockResult> {
   try {
-    const res = await fetchWithTimeout('/api/lock', { method: 'POST' })
-    if (!res.ok) throw new Error(`status ${res.status}`)
-    const json = await res.json()
-    return { ok: !!json.ok, locked: true, device: true }
-  } catch {
+    const res = await fetchWithTimeout('/H', {
+      method: 'GET',
+    })
+
+    if (!res.ok) {
+      throw new Error(`status ${res.status}`)
+    }
+
     demoLocked = true
-    return { ok: true, locked: true, device: false }
+
+    return {
+      ok: true,
+      locked: true,
+      device: true,
+    }
+  } catch (error) {
+    console.error('Failed to engage lock:', error)
+
+    demoLocked = true
+
+    return {
+      ok: true,
+      locked: true,
+      device: false,
+    }
   }
 }
 
-/** Release the physical lock. Resolves optimistically in demo mode. */
 export async function releaseLock(): Promise<LockResult> {
   try {
-    const res = await fetchWithTimeout('/api/unlock', { method: 'POST' })
-    if (!res.ok) throw new Error(`status ${res.status}`)
-    const json = await res.json()
-    return { ok: !!json.ok, locked: false, device: true }
-  } catch {
+    const res = await fetchWithTimeout('/L', {
+      method: 'GET',
+    })
+
+    if (!res.ok) {
+      throw new Error(`status ${res.status}`)
+    }
+
     demoLocked = false
-    return { ok: true, locked: false, device: false }
+
+    return {
+      ok: true,
+      locked: false,
+      device: true,
+    }
+  } catch (error) {
+    console.error('Failed to release lock:', error)
+
+    demoLocked = false
+
+    return {
+      ok: true,
+      locked: false,
+      device: false,
+    }
   }
 }
