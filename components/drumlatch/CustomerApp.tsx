@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { engageLock, releaseLock } from '@/lib/lock-client'
+import { NEARBY_LAUNDROMATS } from '@/lib/data'
 import { LockAnimation, CycleTimer } from './LockAnimation'
 import {
   Home, History, Gift, User, Bell, ChevronRight, ChevronLeft, Lock, Unlock,
   CheckCircle2, Clock, AlertTriangle, Star, Zap, Shield, WashingMachine,
   Phone, MessageCircle, X, Plus, Minus, QrCode, Bluetooth, CreditCard,
-  Settings, ArrowRight, Check, Trophy, Flame, TrendingUp
+  Settings, ArrowRight, Check, Trophy, Flame, TrendingUp,
+  MapPin, Navigation, Wifi
 } from 'lucide-react'
 type Screen =
   | 'home' | 'qr-scan' | 'payment' | 'locking' | 'active-cycle'
@@ -184,6 +186,88 @@ function HomeScreen({ onNav }: { onNav: (s: Screen) => void }) {
             })}
           </div>
         </div>
+
+        {/* Near You */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 text-primary" />
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">DrumLatch Near You</h2>
+            </div>
+            <button className="flex items-center gap-1 text-xs text-primary font-medium">
+              <Navigation className="w-3 h-3" /> Map
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {NEARBY_LAUNDROMATS.map(loc => {
+              const totalAvailable = loc.availableWashers + loc.availableDryers
+              const availPct = loc.open ? Math.round((totalAvailable / loc.totalMachines) * 100) : 0
+              const availColor = !loc.open
+                ? 'text-muted-foreground'
+                : totalAvailable === 0
+                  ? 'text-destructive'
+                  : totalAvailable <= 2
+                    ? 'text-warning'
+                    : 'text-success'
+
+              return (
+                <button
+                  key={loc.id}
+                  onClick={() => {}}
+                  className="w-full text-left flex gap-3 p-3 rounded-xl bg-background border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
+                >
+                  {/* Availability indicator */}
+                  <div className="flex flex-col items-center justify-center w-11 h-11 rounded-xl bg-card border border-border shrink-0">
+                    <span className={cn('text-base font-bold leading-none', availColor)}>{loc.open ? totalAvailable : '—'}</span>
+                    <span className="text-[9px] text-muted-foreground leading-none mt-0.5">open</span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate leading-tight">{loc.name}</p>
+                      <span className={cn(
+                        'text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
+                        loc.open ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                      )}>
+                        {loc.open ? loc.hours : loc.hours}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                        <MapPin className="w-3 h-3" />{loc.distance} · {loc.walkMins} min walk
+                      </span>
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />{loc.rating} ({loc.reviewCount})
+                      </span>
+                    </div>
+
+                    {/* Machine breakdown */}
+                    {loc.open && (
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <WashingMachine className="w-3 h-3" />
+                          <span className={loc.availableWashers > 0 ? 'text-success font-medium' : 'text-destructive'}>{loc.availableWashers}</span>
+                          &nbsp;washers
+                        </span>
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Flame className="w-3 h-3" />
+                          <span className={loc.availableDryers > 0 ? 'text-success font-medium' : 'text-destructive'}>{loc.availableDryers}</span>
+                          &nbsp;dryers
+                        </span>
+                        {loc.amenities.includes('WiFi') && <Wifi className="w-3 h-3 text-muted-foreground/60" />}
+                      </div>
+                    )}
+                  </div>
+
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 self-center shrink-0 group-hover:text-primary/60 transition-colors" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   )

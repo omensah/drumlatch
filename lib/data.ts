@@ -160,6 +160,85 @@ export const PLATFORM_MRR_DATA = [
   { month: 'Jul', mrr: 39800 },
 ]
 
+export interface NearbyLaundromat {
+  id: string
+  name: string
+  address: string
+  distance: string           // walking estimate, e.g. "0.3 mi"
+  walkMins: number
+  open: boolean
+  hours: string
+  totalMachines: number
+  availableWashers: number
+  availableDryers: number
+  rating: number             // 1-5
+  reviewCount: number
+  amenities: string[]        // e.g. 'WiFi', 'Parking', 'Attendant'
+}
+
+export const NEARBY_LAUNDROMATS: NearbyLaundromat[] = [
+  {
+    id: 'loc1',
+    name: 'SpinSpot — Main St',
+    address: '123 Main St, Austin TX',
+    distance: '0.3 mi',
+    walkMins: 6,
+    open: true,
+    hours: 'Open until 10 PM',
+    totalMachines: 12,
+    availableWashers: 3,
+    availableDryers: 4,
+    rating: 4.8,
+    reviewCount: 214,
+    amenities: ['WiFi', 'Parking', 'Attendant'],
+  },
+  {
+    id: 'loc2',
+    name: 'CleanWave Laundry',
+    address: '88 Riverside Blvd, Austin TX',
+    distance: '0.7 mi',
+    walkMins: 14,
+    open: true,
+    hours: 'Open until 9 PM',
+    totalMachines: 8,
+    availableWashers: 1,
+    availableDryers: 2,
+    rating: 4.5,
+    reviewCount: 98,
+    amenities: ['WiFi', 'Parking'],
+  },
+  {
+    id: 'loc3',
+    name: 'Laundry Loop — East',
+    address: '412 Oak Ave, Austin TX',
+    distance: '1.1 mi',
+    walkMins: 22,
+    open: true,
+    hours: 'Open 24 hrs',
+    totalMachines: 20,
+    availableWashers: 8,
+    availableDryers: 6,
+    rating: 4.7,
+    reviewCount: 341,
+    amenities: ['WiFi', 'Parking', 'Attendant', 'Folding'],
+  },
+  {
+    id: 'loc4',
+    name: 'QuickWash Pro',
+    address: '5 Commerce Dr, Austin TX',
+    distance: '1.4 mi',
+    walkMins: 28,
+    open: false,
+    hours: 'Opens at 7 AM',
+    totalMachines: 15,
+    availableWashers: 0,
+    availableDryers: 0,
+    rating: 4.6,
+    reviewCount: 177,
+    amenities: ['Parking', 'Attendant'],
+  },
+]
+
 export const STATUS_COLORS: Record<MachineStatus, string> = {
   available: 'text-success bg-success/10 border-success/20',
   'in-use': 'text-brand bg-brand/10 border-brand/20',
